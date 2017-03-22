@@ -12,5 +12,6 @@ a simplistic todo cli written in Bash, using SQLite.
 
 ## Todo (no pun intented)
 * Enhance display
+* Properly check sqlite3 version so we use either FTS3 or 4.
 * Ability to search task by pattern ?
 
