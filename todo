@@ -1,0 +1,120 @@
+#!/bin/bash
+
+# Simplistic todo list manager using SQLite
+# Code released under GPL3 license. See COPYING file.
+# © 2017 Laurent Wandrebeck
+
+usage() {
+	echo "todo. A simplistic todo list manager using SQLite.
+Your todo database is stored in ~/.todo.db
+todo without arguments will give your todo list contents and their associated id.
+todo -n \"task description\" will add a new task on your todo list.
+todo -c id will mark a task on your todo list as completed.
+todo -d id will delete a task on your todo list from the database.
+todo -a will list all tasks, even ones completed.
+Your todo database path is stored in ~/.todorc, which defaults to ~/.todo.db"
+	exit
+}
+
+initializedb () {
+	sqlite3 ${SQLITEOPTS} "${TODODB}" "CREATE TABLE IF NOT EXISTS todo (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, title TEXT NOT NULL, creation TEXT NOT NULL, completed TEXT);"
+}
+
+addentry () {
+	now=$(date +"%Y-%m-%d %R:%S.%N")
+        query="INSERT INTO todo(title, creation, completed) VALUES(\"${1}\", \"${now}\", NULL);"
+        sqlite3 ${SQLITEOPTS} "${TODODB}" "${query}"
+}
+
+completeentry () {
+	if [ -z "${1}" ]
+        then
+               	usage
+        else
+		declare -i id
+		id="${1}"
+		if [ "${id}" != "${1}" ]
+		then
+			#id is not numeric
+			usage
+		else
+               		now=$(date +"%Y-%m-%d %R:%S.%N")
+               		query="UPDATE todo SET completed=\"${now}\" WHERE id=\"${id}\";"
+               		sqlite3 ${SQLITEOPTS} "${TODODB}" "${query}"
+        	fi
+	fi
+}
+
+deleteentry () {
+	if [ -z "${1}" ]
+	then
+		usage
+	else
+		declare -i id
+		id="${1}"
+		if [ "${id}" != "${1}" ]
+		then
+			#id is not numeric
+			usage
+		else
+			query="DELETE FROM todo WHERE id=\"${id}\";"
+			sqlite3 ${SQLITEOPTS} "${TODODB}" "${query}"
+		fi
+	fi
+}
+
+listentries () {
+	query="SELECT id, title, creation FROM todo WHERE completed IS NULL;"
+	sqlite3 ${SQLITEOPTS} "${TODODB}" "${query}"
+}
+
+listallentries () {
+	query="SELECT id, title, creation, completed FROM todo;"
+	sqlite3 ${SQLITEOPTS} "${TODODB}" "${query}"
+}
+
+#create default ~/.todorc file if it does not exist.
+TODORC="${HOME}/.todorc"
+if [ ! -f "${TODORC}" ]
+then
+	echo "TODODB=\"${HOME}/.todo.db\"" > "${TODORC}"
+	echo "SQLITEOPTS=\"-header\"" >> "${TODORC}"
+fi
+. "${TODORC}"
+
+if [ ! -f "${TODODB}" ]
+then
+	#initialize database
+	echo "todo database not found, creating it…"
+	initializedb
+	if [ $? -ne 0 ]
+	then
+		echo "Database initialization failed: $?"
+		exit $?
+	fi
+	echo "Done"
+fi
+
+if [ -z "${1}" ]
+then
+	listentries
+else
+	if [ -z "${2}" ]
+	then
+		# one argument only options
+		case "${1}" in
+			"-a" ) listallentries ;;
+			*    ) usage ;;
+		esac
+	else
+		# two arguments only options
+		case "${1}" in
+			"-n" ) addentry "${2}" ;;
+			"-c" ) completeentry "${2}" ;;
+			"-d" ) deleteentry "${2}" ;;
+			#"-s" ) search ?
+			*    ) usage ;;
+		esac
+	fi
+fi
+
