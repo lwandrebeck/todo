@@ -10,7 +10,7 @@ a simplistic todo cli written in Bash, using SQLite.
 * Ability to choose SQLite database location via a simple ~/.todorc
 * Ability to tweak SQLite output via ~/.todorc
 
-## Toto (no pun intented)
+## Todo (no pun intented)
 * Enhance display
 * Ability to search task by pattern ?
 
