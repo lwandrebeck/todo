@@ -17,7 +17,12 @@ Your todo database path is stored in ~/.todorc, which defaults to ~/.todo.db"
 }
 
 initializedb () {
-	sqlite3 ${SQLITEOPTS} "${TODODB}" "CREATE TABLE IF NOT EXISTS todo (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, title TEXT NOT NULL, creation TEXT NOT NULL, completed TEXT);"
+	case "${SQLMODE}" in
+		"classic" ) query="CREATE TABLE todo (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, title TEXT NOT NULL, creation TEXT NOT NULL, completed TEXT);";;
+		"fts3"    ) query="CREATE VIRTUAL TABLE todo (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, title TEXT NOT NULL, creation TEXT NOT NULL, completed TEXT);";;
+		"fts4"    ) query="CREATE VIRTUAL TABLE todo (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, title TEXT NOT NULL, creation TEXT NOT NULL, completed TEXT);";;
+	esac
+	sqlite3 ${SQLITEOPTS} "${TODODB}" "${query}"
 }
 
 addentry () {
@@ -73,11 +78,47 @@ listallentries () {
 	sqlite3 ${SQLITEOPTS} "${TODODB}" "${query}"
 }
 
+#verify sqlite3 command is available
+sqlite3=$(which sqlite3)
+if [ "$?" -ne "0"]
+then
+	echo "todo needs sqlite3 command to run, please install it."
+	exit
+else
+	sqliteversion=$("${sqlite3}" -version)
+	# git rid of 3.
+	sqliteversion=${sqliteversion/3./}
+	midversion=${sqliteversion/.*/}
+	minversion=${sqliteversion/${midversion}./}
+	# get rid of potential version like "3.5.10 bla"
+	minversion=${minversion/ */}
+	# version old version of sqlite3, no fts3 nor 4 support
+	if [ "${misversion}" -lt "5"]
+	then
+		SQLMODE="classic"
+	else
+		# fts3 support
+		if [ "${midversion}" -ge "5" -a "${midversion}" -lt "7" ]
+		then
+			SQLMODE="fts3"
+		else
+			# fts4 support was merged in 3.7.5
+			if [ "${midversion}" -eq "7" -a "${minversion}" -lt "5" ]
+			then
+				SQLMODE="fts3"
+			else
+				SQLMODE="fts4"
+			fi
+		fi
+	fi
+fi
+
 #create default ~/.todorc file if it does not exist.
 TODORC="${HOME}/.todorc"
 if [ ! -f "${TODORC}" ]
 then
-	echo "TODODB=\"${HOME}/.todo.db\"" > "${TODORC}"
+	echo "SQLMODE=\"${SQLMODE}\"" > "${TODORC}"
+	echo "TODODB=\"${HOME}/.todo.db\"" >> "${TODORC}"
 	echo "SQLITEOPTS=\"-header\"" >> "${TODORC}"
 fi
 . "${TODORC}"
