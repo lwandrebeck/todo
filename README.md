@@ -21,3 +21,5 @@ a simplistic todo cli written in Bash, using SQLite.
 - [ ] Man page
 - [ ] RPM Packaging
 - [ ] DEB Packaging
+- [ ] Assure script that even recent versions of SQLite do support fts[34] as it is a compilation conditional.
+
