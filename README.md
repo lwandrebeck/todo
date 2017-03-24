@@ -3,7 +3,7 @@ a simplistic todo cli written in Bash, using SQLite.
 
 ## Features
 - [x] Errors out properly if sqlite3 command is unavailable.
-- [x] Add a task (-a), creation timestamp automatically stored.
+- [x] Add a task (-n), creation timestamp automatically stored.
 - [x] Mark a task as completed (-c), completion timestamp automatically stored.
 - [x] Delete a task (-d).
 - [x] Display valid tasks by default (no args).
@@ -17,5 +17,7 @@ a simplistic todo cli written in Bash, using SQLite.
 - [x] Ability to search valid and completed tasks (-S) by word.
 
 ## Todo (no pun intented)
-* Enhance display
-* Code cleanup
+- [ ] Enhance display
+- [ ] Man page
+- [ ] RPM Packaging
+- [ ] DEB Packaging
