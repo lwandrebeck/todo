@@ -4,32 +4,35 @@
 # Code released under GPL3 license. See COPYING file.
 # © 2017 Laurent Wandrebeck
 # Repository is https://github.com/lwandrebeck/todo
+
 repo="https://github.com/lwandrebeck/todo"
 
 usage() {
     echo "todo. A simplistic todo list manager using SQLite.
-Your todo database is stored in ~/.todo.db
+
 todo without arguments will give your todo list contents and their associated id.
-todo -n \"task description\" will add a new task on your todo list.
+todo -a will list all tasks, even ones completed.
 todo -c id will mark a task on your todo list as completed.
 todo -d id will delete a task on your todo list from the database.
-todo -a will list all tasks, even ones completed.
+todo -n \"task description\" will add a new task on your todo list.
 todo -s pattern will list valid tasks matching pattern.
 todo -S pattern will list valid and completed tasks matching pattern.
-Note that SQLite provides 3 formats: « classical », for very old versions (<3.5.0), fts3 (3.5.0 -> 3.7.3), fts4 (>3.7.3)
-AFAIK, nothing still maintained uses <3.5.0. CentOS 6 does provide 3.6.20, so « classic » mode should not ever be used.
-fts[34] does provide MATCH capability, which matches on word (space separator), unlike classic which uses LIKE %word% (*word* as in shell equivalent).
-Searches are case insensitive.
-Your todo database path is stored in ~/.todorc, which defaults to ~/.todo.db"
+
+Your todo database path is stored in ~/.todorc, which defaults to ~/.todo.db or .fts[34] according to your version of SQLite at the time of creation.
+todo will use any older version of the database file if it exists, and exit if a newer and unsupported version is found.
+
+fts[34] does provide MATCH capability, which matches on word (space separated), unlike « classic » (.db) which uses much slower LIKE %word% (*word* as in shell equivalent).
+Note that it is highly unlikely your sqlite3 binary is old enough so its uses .db.
+Searches are case insensitive."
     exit
 }
 
 initializedb () {
     case "${SQLMODE}" in
-        "classic" ) query="CREATE TABLE todo (title TEXT NOT NULL, creation TEXT NOT NULL, completed TEXT);";; # id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-        "fts3"    ) query="CREATE VIRTUAL TABLE todo USING fts3(title TEXT NOT NULL, creation TEXT NOT NULL, completed TEXT);";; # id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-        "fts4"    ) query="CREATE VIRTUAL TABLE todo USING fts4(title TEXT NOT NULL, creation TEXT NOT NULL, completed TEXT);";; # id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
-        *         ) echo "${SQLMODE}" "is not a valid SQLMODE value. That definitively should not have happened. Please report a bug at ${repo}"; exit ;;
+        "db"   ) query="CREATE TABLE todo (title TEXT NOT NULL, creation TEXT NOT NULL, completed TEXT);";; # id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+        "fts3" ) query="CREATE VIRTUAL TABLE todo USING fts3(title TEXT NOT NULL, creation TEXT NOT NULL, completed TEXT);";; # id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+        "fts4" ) query="CREATE VIRTUAL TABLE todo USING fts4(title TEXT NOT NULL, creation TEXT NOT NULL, completed TEXT);";; # id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL,
+        *      ) echo "${SQLMODE}" "is not a valid SQLMODE value. That definitively should not have happened. Please report a bug at ${repo}"; exit ;;
     esac
     "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}"
 }
@@ -91,7 +94,7 @@ search () {
     if [ ! -z "${1}" ]
     then
         case "${SQLMODE}" in
-            "classic" ) query="SELECT rowid, title, creation FROM todo WHERE completed IS NULL AND title LIKE '%${1}%';" ;;
+            "db"   ) query="SELECT rowid, title, creation FROM todo WHERE completed IS NULL AND title LIKE '%${1}%';" ;;
             "fts3" ) query="SELECT rowid, title, creation FROM todo WHERE completed IS NULL AND title MATCH '${1}';" ;;
             "fts4" ) query="SELECT rowid, title, creation FROM todo WHERE completed IS NULL AND title MATCH '${1}';" ;;
             *      ) echo "${SQLMODE}" "is not a valid SQLMODE value. That definitively should not have happened. Please report a bug at ${repo}"; exit ;;
@@ -106,7 +109,7 @@ searchall () {
     if [ ! -z "${1}" ]
     then
         case "${SQLMODE}" in
-            "classic" ) query="SELECT rowid, title, creation, completed FROM todo WHERE title LIKE '%${1}%';" ;;
+            "db"   ) query="SELECT rowid, title, creation, completed FROM todo WHERE title LIKE '%${1}%';" ;;
             "fts3" ) query="SELECT rowid, title, creation, completed FROM todo WHERE title MATCH '${1}';" ;;
             "fts4" ) query="SELECT rowid, title, creation, completed FROM todo WHERE title MATCH '${1}';" ;;
             *      ) echo "${SQLMODE}" "is not a valid SQLMODE value. That definitively should not have happened. Please report a bug at ${repo}"; exit ;;
@@ -117,98 +120,107 @@ searchall () {
     "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}"
 }
 
-#verify "${sqlite3}" command is available
-sqlite3=$(which sqlite3)
-if [ "$?" -ne "0" ]
-then
-    echo "${0} needs sqlite3 command to run, please install it."
-    exit
-else
-    # verify sqlite3 version
-    sqliteversion=$("${sqlite3}" -version)
-    # git rid of 3.
-    sqliteversion=${sqliteversion/3./}
-    midversion=${sqliteversion/.*/}
-    minversion=${sqliteversion/${midversion}./}
-    # get rid of potential version like "3.13.0 2016-05-18 10:57:30 fc49f556e48970561d7ab6a2f24fdd7d9eb81ff2"
-    minversion=${minversion/ */}
-    # version old version of sqlite3, no fts3 nor 4 support
-    if [ "${midversion}" -lt "5" ]
+sqlite3checks () {
+    #verify "${sqlite3}" command is available
+    sqlite3=$(which sqlite3)
+    if [ "$?" -ne "0" ]
     then
-        ACTUALSQLMODE="classic"
+        echo "${0} needs sqlite3 command to run, please install it."
+        exit
     else
-        # fts3 support was merged in 3.5.0
-        if [ "${midversion}" -ge "5" -a "${midversion}" -lt "7" ]
+        # verify sqlite3 version
+        sqliteversion=$("${sqlite3}" -version)
+        # git rid of 3.
+        sqliteversion=${sqliteversion/3./}
+        midversion=${sqliteversion/.*/}
+        minversion=${sqliteversion/${midversion}./}
+        # get rid of potential version like "3.13.0 2016-05-18 10:57:30 fc49f556e48970561d7ab6a2f24fdd7d9eb81ff2"
+        minversion=${minversion/ */}
+        # very old version of sqlite3, no fts3 nor 4 support
+        if [ "${midversion}" -lt "5" ]
         then
-            ACTUALSQLMODE="fts3"
+            ACTUALSQLMODE="db"
         else
-            # fts4 support was merged in 3.7.4
-            if [ "${midversion}" -eq "7" -a "${minversion}" -lt "4" ]
+            # fts3 support was merged in 3.5.0
+            if [ "${midversion}" -ge "5" -a "${midversion}" -lt "7" ]
             then
                 ACTUALSQLMODE="fts3"
             else
-                ACTUALSQLMODE="fts4"
+                # fts4 support was merged in 3.7.4
+                if [ "${midversion}" -eq "7" -a "${minversion}" -lt "4" ]
+                then
+                    ACTUALSQLMODE="fts3"
+                else
+                    ACTUALSQLMODE="fts4"
+                fi
             fi
         fi
     fi
-fi
+}
 
-# create default ~/.todorc file if it does not exist.
-TODORC="${HOME}/.todorc"
-if [ ! -f "${TODORC}" ]
-then
-    echo "SQLMODE=\"${ACTUALSQLMODE}\"" > "${TODORC}"
-    echo "TODODB=\"${HOME}/.todo_${ACTUALSQLMODE}.db\"" >> "${TODORC}"
-    echo "SQLITEOPTS=\"-header\"" >> "${TODORC}"
-fi
-. "${TODORC}"
+todorc () {
+    # create default ~/.todorc file if it does not exist.
+    TODORC="${HOME}/.todorc"
+    if [ ! -f "${TODORC}" ]
+    then
+        echo "SQLMODE=\"${ACTUALSQLMODE}\"" > "${TODORC}"
+        echo "TODODB=\"${HOME}/.todo.${ACTUALSQLMODE}\"" >> "${TODORC}"
+        echo "SQLITEOPTS=\"-header\"" >> "${TODORC}"
+    fi
+    . "${TODORC}"
+}
 
-
-if [ ! -f "${TODODB}" ]
-then
-    # let’s be sure there is no other todo database using something else than ${ACTUALSQLMODE}
-    case "${ACTUALSQLMODE}" in
-        "classic" ) if [ -f "${TODODB/%classic.db/fts3.db}" -o -f "${TODODB/%classic.db/fts4.db}" ]
-                    then
-                        echo "Sorry, your actual version of ${sqlite3} is too old to support fts3/4 format of existing database. Exiting"
-                        exit
-                    fi ;;
-        "fts3"    ) if [ -f "${TODODB/%fts3.db/classic.db}" ]
-                    then
-                        echo "There is an existing SQLite database using the old classic format, using it by ignoring your ~/.todorc values"
-                        SQLMODE="classic"
-                        TODODB="${TODODB/%fts3.db/classic.db}"
-                    elif [ -f "${TODODB/%fts3.db/fts4.db}" ]
-                    then
-                        echo "There is an existing SQLite database using fts4 format, which your actual SQLite version does not support. Exiting."
-                        exit
-                    fi ;;
-        "fts4"    ) if [ -f "${TODODB/%fts4.db/classic.db}" ]
-                    then
-                        echo "There is an existing SQLite database using old classic format, using it by ignoring your ~/.todorc values"
-                        SQLMODE="classic"
-                        TODODB="${TODODB/%fts4.db/classic.db}"
-                    elif [ -f "${TODODB/%fts4.db/fts3.db}" ]
-                    then
-                        echo "There is an existing SQLite using old fts3 format, using it by ignoring your ~/.todorc values"
-                        SQLMODE="fts3"
-                        TODODB="${TODODB/%fts4.db/fts3.db}"
-                    fi ;;
-        *         ) echo "${SQLMODE}" "is not a valid SQLMODE value. That definitively should not have happened. Please report a bug at ${repo}"; exit ;;
-    esac
-    # initialize database if another useable format has not been found
+dbchecks () {
     if [ ! -f "${TODODB}" ]
     then
-        echo "todo database not found, creating it…"
-        initializedb
-        if [ $? -ne 0 ]
+        # let’s be sure there is no other todo database using something else than ${ACTUALSQLMODE}
+        case "${ACTUALSQLMODE}" in
+            "db" ) if [ -f "${TODODB/%db/fts3}" -o -f "${TODODB/%db/fts4}" ]
+                        then
+                            echo "Sorry, your actual version of ${sqlite3} is too old to support fts3/4 format of existing database. Exiting"
+                            exit
+                        fi ;;
+            "fts3"    ) if [ -f "${TODODB/%fts3/db}" ]
+                        then
+                            echo "There is an existing SQLite database using the old classic format, using it by ignoring your ~/.todorc values"
+                            SQLMODE="db"
+                            TODODB="${TODODB/%fts3/db}"
+                        elif [ -f "${TODODB/%fts3/fts4}" ]
+                        then
+                            echo "There is an existing SQLite database using fts4 format, which your actual SQLite version does not support. Exiting."
+                            exit
+                        fi ;;
+            "fts4"    ) if [ -f "${TODODB/%fts4/db}" ]
+                        then
+                            echo "There is an existing SQLite database using old classic format, using it by ignoring your ~/.todorc values"
+                            SQLMODE="db"
+                            TODODB="${TODODB/%fts4/db}"
+                        elif [ -f "${TODODB/%fts4/fts3}" ]
+                        then
+                            echo "There is an existing SQLite using old fts3 format, using it by ignoring your ~/.todorc values"
+                            SQLMODE="fts3"
+                            TODODB="${TODODB/%fts4/fts3}"
+                        fi ;;
+            *         ) echo "${SQLMODE}" "is not a valid SQLMODE value. That definitively should not have happened. Please report a bug at ${repo}"; exit ;;
+        esac
+        # initialize database if another useable format has not been found
+        if [ ! -f "${TODODB}" ]
         then
-            echo "Database initialization failed: $?"
-            exit $?
+            echo "todo database not found, creating it…"
+            initializedb
+            if [ $? -ne 0 ]
+            then
+                echo "Database initialization failed: $?"
+                exit $?
+            fi
+            echo "Done"
         fi
-        echo "Done"
     fi
-fi
+}
+
+sqlite3checks
+todorc
+dbchecks
 
 if [ -z "${1}" ]
 then
@@ -233,4 +245,3 @@ else
         esac
     fi
 fi
-
