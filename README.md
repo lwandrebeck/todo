@@ -3,23 +3,22 @@ a simplistic todo cli written in Bash, using SQLite.
 
 ## Features
 - [x] Errors out properly if sqlite3 command is unavailable.
-- [x] Add a task (-n), creation timestamp automatically stored.
-- [x] Mark a task as completed (-c), completion timestamp automatically stored.
+- [x] Add a New task (-n), creation timestamp automatically stored.
+- [x] Mark a task as Completed (-c), completion timestamp automatically stored.
 - [x] Delete a task (-d).
 - [x] Display valid tasks by default (no args).
-- [x] Display all tasks (-a), valid and completed ones.
+- [x] Display All tasks (-a), valid and completed ones.
 - [x] Ability to choose SQLite database location via a simple ~/.todorc
-- [x] Ability to tweak SQLite output via ~/.todorc
-- [x] Use classic, FTS3 or 4 database format and SQL according to SQLite version.
+- [x] Ability to tweak SQLite output via ~/.todosqliterc
+- [x] Use classic, or FTS3 SQL and database format if available.
 - [x] Use older database format if already existing.
 - [x] Exit if a newer and unsupported database file format is present.
-- [x] Ability to search valid tasks (-s) by word.
-- [x] Ability to search valid and completed tasks (-S) by word.
+- [x] Ability to Search valid tasks (-s) by word.
+- [x] Ability to Search valid and completed tasks (-S) by word.
+- [x] Enhanced display. (better could probably be found. Tailored for 132col terminal)
 
 ## Todo (no pun intented)
-- [ ] Enhance display
-- [ ] Man page
-- [ ] RPM Packaging
-- [ ] DEB Packaging
-- [ ] Assure script that even recent versions of SQLite do support fts[34] as it is a compilation conditional.
-
+- [ ] Man page.
+- [ ] RPM Packaging.
+- [ ] DEB Packaging.
+- [ ] Add the possibility to choose db location at first launch ?
