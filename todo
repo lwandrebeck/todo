@@ -22,11 +22,10 @@
 #
 
 repo="https://github.com/lwandrebeck/todo"
-version="0.9.0"
+version="0.9.1"
 
 version () {
     echo "${version}"
-    exit
 }
 
 usage() {
@@ -47,12 +46,23 @@ Your todo database path is stored in ~/.todorc, which defaults to ~/.todo.db
 SQLite does provide 4 engines, default (old) one, and FTS (newer) 3, 4 and 5 (Full Text Search).
 FTS[345] do provide MATCH capability, which matches on word (space separated), unlike default engine which uses much slower LIKE %word% (*word* as in shell equivalent).
 Note that it is highly unlikely your sqlite3 binary is old enough or compiled without FTS (at least 3) support. todo will use FTS3 if available."
-    exit
+}
+
+error () {
+    if [ ! -z "${1}" ]
+    then
+        echo "Something bad happened. SQL query was: ${1}"
+    else
+        echo "Something bad happened."
+    fi
+    exit 3
 }
 
 informations () {
     query="SELECT * FROM info;"
-    "${sqlite3}" -header -column "${TODODB}" "${query}"
+    echo "Your todo database is located at: ${TODOBD}
+SQL mode used, database creation time, todo version when db was created, SQLite version at db creation."
+    "${sqlite3}" -header -column "${TODODB}" "${query}" || error "${query}"
 }
 
 initializedb () {
@@ -65,15 +75,16 @@ initializedb () {
         "fts3" ) query2="CREATE VIRTUAL TABLE todo USING ${ACTUALSQLMODE}(title TEXT NOT NULL, creation TEXT NOT NULL, completed TEXT);" ;;
         *      ) echo "${SQLMODE}" "is not a valid SQLMODE value. That definitively should not have happened. Please report a bug at ${repo}"; exit 2 ;;
     esac
-    "${sqlite3}" "${TODODB}" "${query}"
-    "${sqlite3}" "${TODODB}" "${insert}"
-    "${sqlite3}" "${TODODB}" "${query2}"
+    echo "todo database creation"
+    "${sqlite3}" "${TODODB}" "${query}" || error "${query}"
+    "${sqlite3}" "${TODODB}" "${insert}" || error "${insert}"
+    "${sqlite3}" "${TODODB}" "${query2}" || error "${query2}"
 }
 
 addentry () {
     now=$(date +"%Y-%m-%d %R:%S")
     query="INSERT INTO todo(title, creation, completed) VALUES('${1}', '${now}', NULL);"
-    "${sqlite3}" "${TODODB}" "${query}"
+    "${sqlite3}" "${TODODB}" "${query}" || error "${query}"
 }
 
 completeentry () {
@@ -90,7 +101,7 @@ completeentry () {
         else
             now=$(date +"%Y-%m-%d %R:%S")
             query="UPDATE todo SET completed='${now}' WHERE rowid=${id};"
-            "${sqlite3}" "${TODODB}" "${query}"
+            "${sqlite3}" "${TODODB}" "${query}" || error "${query}"
         fi
     fi
 }
@@ -108,19 +119,19 @@ deleteentry () {
             usage
         else
             query="DELETE FROM todo WHERE rowid=${id};"
-            "${sqlite3}" "${TODODB}" "${query}"
+            "${sqlite3}" "${TODODB}" "${query}" || error "${query}"
         fi
     fi
 }
 
 listentries () {
     query="SELECT rowid, title, creation FROM todo WHERE completed IS NULL;"
-    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null
+    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null  || error "${query}"
 }
 
 listallentries () {
     query="SELECT rowid, title, creation, completed FROM todo;"
-    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null
+    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null || error "${query}"
 }
 
 search () {
@@ -134,7 +145,7 @@ search () {
     else
         usage
     fi
-    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null
+    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null || error "${query}"
 }
 
 searchall () {
@@ -148,7 +159,7 @@ searchall () {
     else
         usage
     fi
-    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null
+    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null || error "${query}"
 }
 
 todorc () {
@@ -192,19 +203,12 @@ dbchecks () {
     then
         echo "todo database not found, creating it…"
         initializedb
-        errno=$?
-        if [ "${errno}" -ne "0" ]
-        then
-            echo "Database initialization failed: ${errno}"
-            exit ${errno}
-        fi
-        echo "Done"
     else
         SQLMODE=$(${sqlite3} ${TODODB} "SELECT sqlmode FROM info;")
         # we’ve got a fts3 database and sqlite3 is so old it can’t manage it.
-        if [ "${SQLMODE}" == "fts3" -a "${ACTUALSQLMODE}" == "db" ]
+        if [ "${SQLMODE}" == "fts3" ] && [ "${ACTUALSQLMODE}" == "db" ]
         then
-            echo "Sorry, your todo database uses FTS3 format, which your sqlite3 binary does not support. Exiting."
+            echo "Sorry, your todo database ${TODODB} uses FTS3 format, which your ${sqlite3} binary does not support. Exiting."
             exit 1
         fi
     fi
@@ -219,30 +223,29 @@ if [ -z "${1}" ]
 then
     listentries
 else
-    if [ -z "${2}" ]
+    if ( ! getopts ac:d:hin:s:S:v OPT )
     then
-        # one argument only options
-        case "${1}" in
-            "-a" ) listallentries ;;
-            "-h" ) usage ;;
-            "-i" ) informations ;;
-            "-v" ) version ;;
-            *    ) usage ;;
-        esac
-    else
-        if [ -z "${3}" ]
-        then
-            # two arguments only options
-            case "${1}" in
-                "-n" ) addentry "${2}" ;;
-                "-c" ) completeentry "${2}" ;;
-                "-d" ) deleteentry "${2}" ;;
-                "-s" ) search "${2}" ;;
-                "-S" ) searchall "${2}" ;;
-                *    ) usage ;;
-            esac
-        else
-            usage
-        fi
+        usage
+        exit 1
     fi
 fi
+
+while getopts ac:d:hin:s:S:v OPT;
+do
+    case $OPT in
+        a) listallentries ;;
+        c) completeentry "$OPTARG" ;;
+        d) deleteentry "$OPTARG" ;;
+        h) usage ;;
+        i) informations ;;
+        n) addentry "$OPTARG" ;;
+        s) search "$OPTARG" ;;
+        S) searchall "$OPTARG" ;;
+        v) version ;;
+        \?) usage
+            exit ;;
+        :) echo "Missing argument for $OPT"
+           usage
+           exit ;;
+    esac
+done
