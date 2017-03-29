@@ -237,8 +237,9 @@ sqlite3checks () {
     fi
     # test if FTS is available
     ACTUALSQLMODE="fts3"
-    "${sqlite3}" "/tmp/.tmp.db" "CREATE VIRTUAL TABLE test USING ${ACTUALSQLMODE}(title TEXT NOT NULL);" 2> /dev/null || ACTUALSQLMODE="db"
-    rm -f "/tmp/.tmp.db"
+    tmp="$(mktemp)"
+    "${sqlite3}" "${tmp}" "CREATE VIRTUAL TABLE test USING ${ACTUALSQLMODE}(title TEXT NOT NULL);" 2> /dev/null || ACTUALSQLMODE="db"
+    rm -f "${tmp}"
 }
 
 dbchecks () {
