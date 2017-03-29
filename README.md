@@ -18,11 +18,11 @@ a simplistic todo cli written in Bash, using SQLite.
 - [x] Ability to mark as Unfinished (-u) a task previously marked as completed.
 - [x] Enhanced display. (better could probably be found. Tailored for 132col terminal)
 - [x] Man page.
+- [x] database path customization at first launch
 
 ## Todo (no pun intented)
 - [ ] RPM Packaging.
 - [ ] DEB Packaging.
-- [ ] Add the possibility to choose db location at first launch ?
 
 todo SQL database is very simple:
 

@@ -22,7 +22,7 @@
 #
 
 repo="https://github.com/lwandrebeck/todo"
-version="0.9.2"
+version="0.9.3"
 
 version () {
     echo "${version}"
@@ -52,7 +52,7 @@ Note that it is highly unlikely your sqlite3 binary is old enough or compiled wi
 error () {
     if [ ! -z "${1}" ]
     then
-        echo "Something bad happened. SQL query was: ${1}"
+        echo "Something bad happened. command was: ${1}"
     else
         echo "Something bad happened."
     fi
@@ -76,10 +76,10 @@ initializedb () {
         "fts3" ) query2="CREATE VIRTUAL TABLE todo USING ${ACTUALSQLMODE}(title TEXT NOT NULL, creation TEXT NOT NULL, completed TEXT);" ;;
         *      ) echo "${SQLMODE}" "is not a valid SQLMODE value. That definitively should not have happened. Please report a bug at ${repo}"; exit 2 ;;
     esac
-    echo "todo database creation"
     "${sqlite3}" "${TODODB}" "${query}" || error "${query}"
     "${sqlite3}" "${TODODB}" "${insert}" || error "${insert}"
     "${sqlite3}" "${TODODB}" "${query2}" || error "${query2}"
+    echo "todo database \"${TODODB}\" created"
 }
 
 addentry () {
@@ -186,7 +186,31 @@ todorc () {
     TODORC="${HOME}/.todorc"
     if [ ! -f "${TODORC}" ]
     then
-        echo "TODODB=\"${HOME}/.todo.db\"" >> "${TODORC}"
+        echo "It looks like this is the first time you run todo. We hope you will like it"
+        echo "Would you like to tweak todo database path ? (hit enter to keep default value (~/.todo.db), or give (potentially non-existing) dir) :"
+        read -p "enter dir $ " tododb
+        # user did not type anything
+        if [ -z "${tododb}" ]
+        then
+            TODODB="${HOME}/.todo.db"
+        else
+            # that directory does not exist
+            if [ ! -d "${tododb}" ]
+            then
+                mkdir -p "${tododb}" || error "mkdir -p \"${tododb}\""
+                exit 5
+            else
+                #let’s assure we can write into the existing directory
+                if [ ! -w "${tododb}" ]
+                then
+                    echo "Error: \"${tododb}\" is not writable, we can’t store database there."
+                    exit 6
+                else
+                    TODODB="${tododb}/.todo.db"
+                fi
+            fi
+        fi
+        echo "TODODB=\"${TODODB}\"" >> "${TODORC}"
         echo "SQLITEOPTS=\"-header -column -init ${TODOSQLITERC}\"" >> "${TODORC}"
         echo "${TODORC} created."
     fi

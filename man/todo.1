@@ -1,4 +1,4 @@
-.TH todo 1 "March 29, 2017" "version 0.9.2" "USER COMMANDS"
+.TH todo 1 "March 29, 2017" "version 0.9.3" "USER COMMANDS"
 
 .SH NAME
 todo \- simple todo list manager written in Bash, using SQLite to store your todo list data.
@@ -92,6 +92,10 @@ todo.1 (man page)
 3: There was a problem when interacting with SQLite.
 .PP
 4: Database uses FTS3 SQLMODE, but sqlite3 does not support it (that could happen if you use some kind of cloud to store your todo database, and are in front of a VERY old OS), or if the packager did not compile sqlite3 with FTS support (unlikely)).
+.PP
+5: There was a problem creating directory destined to store todo database.
+.PP
+6: Database directory is not writable, so we can’t store todo database there.
 
 .SH AUTHOR
 Laurent Wandrebeck (l.wandrebeck (at) quelquesmots.fr)
