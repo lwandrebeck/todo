@@ -1,0 +1,97 @@
+.TH todo 1 "March 29, 2017" "version 0.9.2" "USER COMMANDS"
+
+.SH NAME
+todo \- simple todo list manager written in Bash, using SQLite to store your todo list data.
+
+.SH SYNOPSYS
+.B todo
+[\-a] [\-c rowid] [\-d rowid] [\h] [\-i] [\-n "task description"] [\-s word] [\-S word] [-u rowid] [\-v]
+
+.SH DESCRIPTION
+todo is a simple todo list manager written in Bash, using SQLite to store your todo list data.
+.PP
+Basic informations about your database are available: SQLite database format (sqlmode), date of database creation, todo version used at database creation (if format is to change some day, that will allow continuity, and SQLite version used when database was created).
+.PP
+~/.todorc file allows you to define the database path (TODODB variable, using Bash syntax), and SQLite options.
+.PP
+~/.todosqliterc file allows to tweak SQLite output (display is tailored for 132 columns terminals by default). See man sqlite3
+
+.SH OPTIONS
+.TP
+(none)
+Lists all valid tasks (completed ones are ignored).
+.TP
+\-a
+Lists all tasks, even ones marked as completed.
+.TP
+\-c
+Mark as completed task with corresponding rowid. rowid is an integer.
+.TP
+\-d
+Delete a task with corresponding rowid. Recovery is not possible.
+.TP
+\-h
+Display help.
+.TP
+\-i
+Display informations about your todo database (SQL mode used, date of database creation, todo version when database was created, SQLite version when database was created).
+.TP
+\-n
+Create a new task. Argument is task description and must be "quoted". Otherwise, task will be created with only the 1st word of description.
+.TP
+\-s
+Search for unfinished tasks (not marked as completed) containing either '%word%' (*word* in shell equivalent) if database was created using old format, or ' word ' if using FTS3 (Full Text Search) engine of SQLite (most likely the case).
+.TP
+\-S
+Search for still valid and completed tasks containing either '%word%' (*word* in shell equivalent) if database was created using old format, or ' word ' if using FTS3 (Full Text Search) engine of SQLite (most likely the case).
+.TP
+\-u
+Mark a completed task as unfinished. Argument is integer.
+.TP
+\-v
+Display todo version.
+
+.SH EXAMPLES
+.TP
+Display all tasks (but ones that have been deleted (-d)):
+.B todo
+\-a
+.PP
+.TP
+Display database informations, and todo version:
+.B todo
+\-i \-v
+.PP
+.TP
+Search for valid tasks containing word debug:
+.B todo
+\-s "debug"
+.PP
+
+.SH ENVIRONMENT
+todo does not export any variable.
+
+.SH FILES
+todo
+.PP
+todo.1 (man page)
+.PP
+~/.todorc
+.PP
+~/.todosqliterc
+.PP
+~/.todo.db (path can be changed via ~/.todorc)
+
+.SH EXIT STATUS
+0: Everything went fine.
+.PP
+1: sqlite3 command could not be found.
+.PP
+2: SQLMODE (defined in ~/.todorc) has a non valid value.
+.PP
+3: There was a problem when interacting with SQLite.
+.PP
+4: Database uses FTS3 SQLMODE, but sqlite3 does not support it (that could happen if you use some kind of cloud to store your todo database, and are in front of a VERY old OS), or if the packager did not compile sqlite3 with FTS support (unlikely)).
+
+.SH AUTHOR
+Laurent Wandrebeck (l.wandrebeck (at) quelquesmots.fr)
