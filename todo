@@ -228,7 +228,7 @@ dbchecks () {
         if [ "${SQLMODE}" == "fts3" ] && [ "${ACTUALSQLMODE}" == "db" ]
         then
             echo "Sorry, your todo database ${TODODB} uses FTS3 format, which your ${sqlite3} binary does not support. Exiting."
-            exit 1
+            exit 4
         fi
     fi
 }
