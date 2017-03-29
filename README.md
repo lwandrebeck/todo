@@ -15,6 +15,7 @@ a simplistic todo cli written in Bash, using SQLite.
 - [x] Exit if a newer and unsupported database file format is present.
 - [x] Ability to Search valid tasks (-s) by word.
 - [x] Ability to Search valid and completed tasks (-S) by word.
+- [x] Ability to mark as Unfinished (-u) a task previously marked as completed.
 - [x] Enhanced display. (better could probably be found. Tailored for 132col terminal)
 
 ## Todo (no pun intented)

@@ -22,7 +22,7 @@
 #
 
 repo="https://github.com/lwandrebeck/todo"
-version="0.9.1"
+version="0.9.2"
 
 version () {
     echo "${version}"
@@ -39,6 +39,7 @@ usage() {
     -n \"task description\": Create a New task. Creation time is stored at the moment command is issued.
     -s word: Search for not yet completed tasks containing \" word \" (case insensitive search).
     -S word: Search for still valid and completed tasks containing \" word \" (case insensitive search).
+    -u rowid: Mark as Unfinished a task previously marked as completed.
     -v: Version.
 
 Your todo database path is stored in ~/.todorc, which defaults to ~/.todo.db
@@ -101,6 +102,24 @@ completeentry () {
         else
             now=$(date +"%Y-%m-%d %R:%S")
             query="UPDATE todo SET completed='${now}' WHERE rowid=${id};"
+            "${sqlite3}" "${TODODB}" "${query}" || error "${query}"
+        fi
+    fi
+}
+
+unfinishentry () {
+    if [ -z "${1}" ]
+    then
+        usage
+    else
+        declare -i id
+        id="${1}"
+        if [ "${id}" != "${1}" ]
+        then
+            #id is not numeric
+            usage
+        else
+            query="UPDATE todo SET completed=NULL WHERE rowid=${id};"
             "${sqlite3}" "${TODODB}" "${query}" || error "${query}"
         fi
     fi
@@ -223,14 +242,14 @@ if [ -z "${1}" ]
 then
     listentries
 else
-    if ( ! getopts ac:d:hin:s:S:v OPT )
+    if ( ! getopts ac:d:hin:s:S:u:v OPT )
     then
         usage
         exit 1
     fi
 fi
 
-while getopts ac:d:hin:s:S:v OPT;
+while getopts ac:d:hin:s:S:u:v OPT;
 do
     case $OPT in
         a) listallentries ;;
@@ -241,6 +260,7 @@ do
         n) addentry "$OPTARG" ;;
         s) search "$OPTARG" ;;
         S) searchall "$OPTARG" ;;
+        u) unfinishentry "$OPTARG" ;;
         v) version ;;
         \?) usage
             exit ;;
