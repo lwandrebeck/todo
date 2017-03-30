@@ -21,11 +21,13 @@
 # MA 02110-1301, USA.
 #
 
+# exit immediately if some command exits with non 0 status which is not taken care of ( || do something )
 set -e
+# make bash grumble on unset variables.
 set -u
 
 repo="https://github.com/lwandrebeck/todo"
-version="0.9.3"
+version="0.9.4"
 
 version () {
     echo "${version}"
@@ -55,7 +57,7 @@ Note that it is highly unlikely your sqlite3 binary is old enough or compiled wi
 error () {
     if [ ! -z "${1}" ]
     then
-        echo "Something bad happened. command was: ${1}"
+        echo "Something bad happened. command was: \"${1}\""
     else
         echo "Something bad happened."
     fi
@@ -66,7 +68,7 @@ informations () {
     query="SELECT * FROM info;"
     echo "Your todo database is located at: \"${1}\"
 SQL mode used, database creation time, todo version when db was created, SQLite version at db creation."
-    "${sqlite3}" -header -column "${TODODB}" "${query}" || { error "${query}" ; exit 3 ; }
+    "${sqlite3}" -header -column "${TODODB}" "${query}" || { error "informations function: ${query}" ; exit 3 ; }
 }
 
 initializedb () {
@@ -79,16 +81,24 @@ initializedb () {
         "fts3" ) query2="CREATE VIRTUAL TABLE todo USING ${ACTUALSQLMODE}(title TEXT NOT NULL, creation TEXT NOT NULL, completed TEXT);" ;;
         *      ) echo "${SQLMODE}" "is not a valid SQLMODE value. That definitively should not have happened. Please report a bug at ${repo}"; exit 2 ;;
     esac
-    "${sqlite3}" "${TODODB}" "${query}" || { error "${query}" ; exit 3 ; }
-    "${sqlite3}" "${TODODB}" "${insert}" || { error "${insert}" ; exit 3 ; }
-    "${sqlite3}" "${TODODB}" "${query2}" || { error "${query2}" ; exit 3 ; }
-    echo "todo database \"${TODODB}\" created"
+    initializedb_rollback () {
+		rm -f "${TODODB}"
+		exit 3
+	}
+	# better no db than a partially initialized one.
+	trap initializedb_rollback INT TERM EXIT
+    "${sqlite3}" "${TODODB}" "${query}" || { error "initializedb function: ${query}" ; exit 3 ; }
+    "${sqlite3}" "${TODODB}" "${insert}" || { error "initializedb function: ${insert}" ; exit 3 ; }
+    "${sqlite3}" "${TODODB}" "${query2}" || { error "initializedb function: ${query2}" ; exit 3 ; }
+    # get rid of the trap
+    trap - INT TERM EXIT
+    echo "todo database \"${TODODB}\" successfully created"
 }
 
 addentry () {
     now=$(date +"%Y-%m-%d %R:%S")
     query="INSERT INTO todo(title, creation, completed) VALUES('${1}', '${now}', NULL);"
-    "${sqlite3}" "${TODODB}" "${query}" || { error "${query}" ; exit 3 ; }
+    "${sqlite3}" "${TODODB}" "${query}" || { error "addentry function: ${query}" ; exit 3 ; }
 }
 
 completeentry () {
@@ -105,7 +115,7 @@ completeentry () {
         else
             now=$(date +"%Y-%m-%d %R:%S")
             query="UPDATE todo SET completed='${now}' WHERE rowid=${id};"
-            "${sqlite3}" "${TODODB}" "${query}" || { error "${query}" ; exit 3 ; }
+            "${sqlite3}" "${TODODB}" "${query}" || { error "completeentry function: ${query}" ; exit 3 ; }
         fi
     fi
 }
@@ -123,7 +133,7 @@ unfinishentry () {
             usage
         else
             query="UPDATE todo SET completed=NULL WHERE rowid=${id};"
-            "${sqlite3}" "${TODODB}" "${query}" || { error "${query}" ; exit 3 ; }
+            "${sqlite3}" "${TODODB}" "${query}" || { error "unfinishentry function: ${query}" ; exit 3 ; }
         fi
     fi
 }
@@ -141,19 +151,19 @@ deleteentry () {
             usage
         else
             query="DELETE FROM todo WHERE rowid=${id};"
-            "${sqlite3}" "${TODODB}" "${query}" || { error "${query}" ; exit 3 ; }
+            "${sqlite3}" "${TODODB}" "${query}" || { error "deleteentry function: ${query}" ; exit 3 ; }
         fi
     fi
 }
 
 listentries () {
     query="SELECT rowid, title, creation FROM todo WHERE completed IS NULL;"
-    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null  || { error "${query}" ; exit 3 ; }
+    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null  || { error "listentries function: ${query}" ; exit 3 ; }
 }
 
 listallentries () {
     query="SELECT rowid, title, creation, completed FROM todo;"
-    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null || { error "${query}" ; exit 3 ; }
+    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null || { error "listallentries function: ${query}" ; exit 3 ; }
 }
 
 search () {
@@ -162,12 +172,12 @@ search () {
         case "${SQLMODE}" in
             "db"   ) query="SELECT rowid, title, creation FROM todo WHERE completed IS NULL AND title LIKE '%${1}%';" ;;
             "fts3" ) query="SELECT rowid, title, creation FROM todo WHERE completed IS NULL AND title MATCH '${1}';" ;;
-            *      ) echo "${SQLMODE}" "is not a valid SQLMODE value. That definitively should not have happened. Please report a bug at ${repo}"; exit 2;;
+            *      ) echo "${SQLMODE}" "is not a valid SQLMODE value. That definitively should not have happened. Please report a bug at ${repo}"; exit 2 ;;
         esac
     else
         usage
     fi
-    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null || { error "${query}" ; exit 3 ; }
+    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null || { error "search function: ${query}" ; exit 3 ; }
 }
 
 searchall () {
@@ -176,12 +186,12 @@ searchall () {
         case "${SQLMODE}" in
             "db"   ) query="SELECT rowid, title, creation, completed FROM todo WHERE title LIKE '%${1}%';" ;;
             "fts3" ) query="SELECT rowid, title, creation, completed FROM todo WHERE title MATCH '${1}';" ;;
-            *      ) echo "${SQLMODE}" "is not a valid SQLMODE value. That definitively should not have happened. Please report a bug at ${repo}"; exit 2;;
+            *      ) echo "${SQLMODE}" "is not a valid SQLMODE value. That definitively should not have happened. Please report a bug at ${repo}"; exit 2 ;;
         esac
     else
         usage
     fi
-    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null || { error "${query}" ; exit 3 ; }
+    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null || { error "searchall function: ${query}" ; exit 3 ; }
 }
 
 todorc () {
@@ -200,31 +210,47 @@ todorc () {
             # that directory does not exist
             if [ ! -d "${tododb}" ]
             then
-                mkdir -p "${tododb}" || { error "mkdir -p \"${tododb}\"" ; exit 5 ; }
+                mkdir -p "${tododb}" || { error "todorc function: mkdir -p \"${tododb}\"" ; exit 5 ; }
             else
                 #let’s assure we can write into the existing directory
                 if [ ! -w "${tododb}" ]
                 then
-                    echo "Error: \"${tododb}\" is not writable, we can’t store database there."
+                    echo "todorc function: Error: \"${tododb}\" is not writable, we can’t store database there."
                     exit 6
                 else
                     TODODB="${tododb}/.todo.db"
                 fi
             fi
         fi
+        todorc_rollback () {
+			rm -f "${TODORC}"
+			exit
+		}
+		# better no .todorc than an incomplete one
+        trap todorc_rollback INT TERM EXIT
         echo "TODODB=\"${TODODB}\"" >> "${TODORC}"
         echo "SQLITEOPTS=\"-header -column -init ${TODOSQLITERC}\"" >> "${TODORC}"
-        echo "${TODORC} created."
+        # get rid of the trap
+        trap - INT TERM EXIT
+        echo "${TODORC} successfully created."
     fi
-    . "${TODORC}"
+    source "${TODORC}"
 }
 
 todosqliterc () {
     TODOSQLITERC="${HOME}/.todosqliterc"
     if [ ! -f "${TODOSQLITERC}" ]
     then
+		todosqliterc_rollback () {
+			rm -f "${TODOSQLITERC}"
+			exit
+		}
+		# better no .todosqliterc than an incomplete one
+		trap todosqliterc_rollback INT TERM EXIT
         echo ".width 5 83 19 19" > "${TODOSQLITERC}"
-        echo "${TODOSQLITERC} created."
+        # get rid of the trap
+        trap - INT TERM EXIT
+        echo "${TODOSQLITERC} successfully created."
     fi
 }
 
@@ -241,6 +267,8 @@ sqlite3checks () {
     ACTUALSQLMODE="fts3"
     tmp="$(mktemp)"
     "${sqlite3}" "${tmp}" "CREATE VIRTUAL TABLE test USING ${ACTUALSQLMODE}(title TEXT NOT NULL);" 2> /dev/null || ACTUALSQLMODE="db"
+    # prevent remaining tmp file if todo is interrupted
+    trap "rm -f '${tmp}' ; exit " INT TERM EXIT
     rm -f "${tmp}"
 }
 
