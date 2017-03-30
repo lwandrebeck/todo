@@ -21,6 +21,9 @@
 # MA 02110-1301, USA.
 #
 
+set -e
+set -u
+
 repo="https://github.com/lwandrebeck/todo"
 version="0.9.3"
 
@@ -61,9 +64,9 @@ error () {
 
 informations () {
     query="SELECT * FROM info;"
-    echo "Your todo database is located at: ${TODOBD}
+    echo "Your todo database is located at: \"${1}\"
 SQL mode used, database creation time, todo version when db was created, SQLite version at db creation."
-    "${sqlite3}" -header -column "${TODODB}" "${query}" || error "${query}"
+    "${sqlite3}" -header -column "${TODODB}" "${query}" || { error "${query}" ; exit 3 ; }
 }
 
 initializedb () {
@@ -76,16 +79,16 @@ initializedb () {
         "fts3" ) query2="CREATE VIRTUAL TABLE todo USING ${ACTUALSQLMODE}(title TEXT NOT NULL, creation TEXT NOT NULL, completed TEXT);" ;;
         *      ) echo "${SQLMODE}" "is not a valid SQLMODE value. That definitively should not have happened. Please report a bug at ${repo}"; exit 2 ;;
     esac
-    "${sqlite3}" "${TODODB}" "${query}" || error "${query}"
-    "${sqlite3}" "${TODODB}" "${insert}" || error "${insert}"
-    "${sqlite3}" "${TODODB}" "${query2}" || error "${query2}"
+    "${sqlite3}" "${TODODB}" "${query}" || { error "${query}" ; exit 3 ; }
+    "${sqlite3}" "${TODODB}" "${insert}" || { error "${insert}" ; exit 3 ; }
+    "${sqlite3}" "${TODODB}" "${query2}" || { error "${query2}" ; exit 3 ; }
     echo "todo database \"${TODODB}\" created"
 }
 
 addentry () {
     now=$(date +"%Y-%m-%d %R:%S")
     query="INSERT INTO todo(title, creation, completed) VALUES('${1}', '${now}', NULL);"
-    "${sqlite3}" "${TODODB}" "${query}" || error "${query}"
+    "${sqlite3}" "${TODODB}" "${query}" || { error "${query}" ; exit 3 ; }
 }
 
 completeentry () {
@@ -102,7 +105,7 @@ completeentry () {
         else
             now=$(date +"%Y-%m-%d %R:%S")
             query="UPDATE todo SET completed='${now}' WHERE rowid=${id};"
-            "${sqlite3}" "${TODODB}" "${query}" || error "${query}"
+            "${sqlite3}" "${TODODB}" "${query}" || { error "${query}" ; exit 3 ; }
         fi
     fi
 }
@@ -120,7 +123,7 @@ unfinishentry () {
             usage
         else
             query="UPDATE todo SET completed=NULL WHERE rowid=${id};"
-            "${sqlite3}" "${TODODB}" "${query}" || error "${query}"
+            "${sqlite3}" "${TODODB}" "${query}" || { error "${query}" ; exit 3 ; }
         fi
     fi
 }
@@ -138,19 +141,19 @@ deleteentry () {
             usage
         else
             query="DELETE FROM todo WHERE rowid=${id};"
-            "${sqlite3}" "${TODODB}" "${query}" || error "${query}"
+            "${sqlite3}" "${TODODB}" "${query}" || { error "${query}" ; exit 3 ; }
         fi
     fi
 }
 
 listentries () {
     query="SELECT rowid, title, creation FROM todo WHERE completed IS NULL;"
-    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null  || error "${query}"
+    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null  || { error "${query}" ; exit 3 ; }
 }
 
 listallentries () {
     query="SELECT rowid, title, creation, completed FROM todo;"
-    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null || error "${query}"
+    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null || { error "${query}" ; exit 3 ; }
 }
 
 search () {
@@ -164,7 +167,7 @@ search () {
     else
         usage
     fi
-    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null || error "${query}"
+    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null || { error "${query}" ; exit 3 ; }
 }
 
 searchall () {
@@ -178,7 +181,7 @@ searchall () {
     else
         usage
     fi
-    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null || error "${query}"
+    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null || { error "${query}" ; exit 3 ; }
 }
 
 todorc () {
@@ -197,8 +200,7 @@ todorc () {
             # that directory does not exist
             if [ ! -d "${tododb}" ]
             then
-                mkdir -p "${tododb}" || error "mkdir -p \"${tododb}\""
-                exit 5
+                mkdir -p "${tododb}" || { error "mkdir -p \"${tododb}\"" ; exit 5 ; }
             else
                 #let’s assure we can write into the existing directory
                 if [ ! -w "${tododb}" ]
@@ -263,7 +265,9 @@ todorc
 sqlite3checks
 dbchecks
 
-if [ -z "${1}" ]
+#satisfy set -u
+args=${1:-}
+if [ -z "${args}" ]
 then
     listentries
 else
@@ -281,7 +285,7 @@ do
         c) completeentry "$OPTARG" ;;
         d) deleteentry "$OPTARG" ;;
         h) usage ;;
-        i) informations ;;
+        i) informations "${TODODB}" ;;
         n) addentry "$OPTARG" ;;
         s) search "$OPTARG" ;;
         S) searchall "$OPTARG" ;;
