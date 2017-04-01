@@ -19,10 +19,11 @@ a simplistic todo cli written in Bash, using SQLite.
 - [x] Enhanced display. (better could probably be found. Tailored for 132col terminal)
 - [x] Man page.
 - [x] database path customization at first launch
+- [x] RPM Packaging.
 
 ## Todo (no pun intented)
-- [ ] RPM Packaging.
 - [ ] DEB Packaging.
+- [ ] Add import/export of database ?
 
 todo SQL database is very simple:
 

@@ -27,7 +27,7 @@ set -e
 set -u
 
 repo="https://github.com/lwandrebeck/todo"
-version="0.9.4"
+version="0.9.5"
 
 version () {
     echo "${version}"
