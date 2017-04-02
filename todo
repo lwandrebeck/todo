@@ -27,7 +27,7 @@ set -e
 set -u
 
 repo="https://github.com/lwandrebeck/todo"
-version="0.9.5"
+version="0.9.6"
 
 version () {
     echo "${version}"
@@ -37,15 +37,19 @@ usage() {
     echo "Usage: ${0} [option] [argument]
 
     -a : List All tasks.
+    -b \"filename\" : Binary backup of database to filename (which must not exist).
     -c rowid : Mark task with rowid as Completed at the moment the command is issued.
     -d rowid : Delete task with rowid from database (no cancel possible).
     -h : This help.
     -i : informations about database.
-    -n \"task description\": Create a New task. Creation time is stored at the moment command is issued.
-    -s word: Search for not yet completed tasks containing \" word \" (case insensitive search).
-    -S word: Search for still valid and completed tasks containing \" word \" (case insensitive search).
-    -u rowid: Mark as Unfinished a task previously marked as completed.
-    -v: Version.
+    -n \"task description\" : Create a New task. Creation time is stored at the moment command is issued.
+    -p \"filename\" : DumP database in SQL format to a given file. Content will be overwritten if existing.
+    -r \"filename\" : Restore a binary backup. !!! BEWARE !!! Database will be overwritten (previous content will be lost).
+    -s word : Search for not yet completed tasks containing \" word \" (case insensitive search).
+    -S word : Search for still valid and completed tasks containing \" word \" (case insensitive search).
+    -t \"filename\" : ImporT a dump file in SQL format. !!! BEWARE !!! Database content will be erased before import.
+    -u rowid : Mark as Unfinished a task previously marked as completed.
+    -v : Version.
 
 Your todo database path is stored in ~/.todorc, which defaults to ~/.todo.db
 
@@ -68,6 +72,7 @@ informations () {
     query="SELECT * FROM info;"
     echo "Your todo database is located at: \"${1}\"
 SQL mode used, database creation time, todo version when db was created, SQLite version at db creation."
+	"${sqlite3}" "${TODODB}" ".dbinfo" || { error "informations function: .dbinfo" ; exit 3 ; }
     "${sqlite3}" -header -column "${TODODB}" "${query}" || { error "informations function: ${query}" ; exit 3 ; }
 }
 
@@ -254,6 +259,53 @@ todosqliterc () {
     fi
 }
 
+dump () {
+	"${sqlite3}" "${TODODB}" ".dump" > "${1}" || { error "in dump function \"${sqlite3}\" \"${TODODB}\" \".dump\" > \"${1}\"" ; exit 3 ; }
+	echo "database \"${TODODB}\" successfully dumped in SQL format to \"${1}\""
+}
+
+import () {
+    if [ ! -z "${1}" ] && [ -r "${1}" ] && [ -f "${1}" ]
+    then
+		"${sqlite3}" "${TODODB}" "DROP TABLE info;" || { error "import function. DROP TABLE info;" ; exit 3 ; }
+		"${sqlite3}" "${TODODB}" "DROP TABLE todo;" || { error "import function. DROP TABLE info;" ; exit 3 ; }
+		"${sqlite3}" "${TODODB}" < "${1}"  || { error "import function at import phase." ; exit 3 ; }
+		echo "todo database dump \"${1}\" has successfully replaced \"${TODODB}\" content."
+	else
+		error "\"${1}\" is either empty, non readable, or not a file. Database was not modified."
+	fi
+}
+
+backup () {
+	# do a binary backup of database.
+	if [ ! -z "${1}" ] && [ ! -e "${1}" ]
+	then
+		"${sqlite3}" "${TODODB}" ".backup ${1}" || { error "backup function : Error while backup-ing database to \"${1}\". Exiting." ; exit 7 ; }
+		echo "\"${TODODB}\" was successfully backup-ed to \"${1}\""
+	else
+		echo "\"${1}\" is either empty or already existing. Backup aborded."
+	fi
+}
+
+restore () {
+	# restore a binary backup of database.
+	if [ ! -z "${1}" ] && [ -f "${1}" ] && [ -r "${1}" ]
+	then
+		# be sure the file to restore is a SQLite database.
+		type=$(file "${1}" | grep "SQLite 3" | wc -l)
+		if [ ! ${type} ]
+		then
+			echo "\"${1}\" is not a SQLite 3 database. Cannot restore. Exiting."
+			exit 7
+		else
+			"${sqlite3}" "${TODODB}" ".restore ${1}" || { error "restore function : Error while restoring database. Disk full ? Database may be corrupted :(. Exiting." ; exit 7 ; }
+			echo "Database successfully restored from backup \"${1}\""
+		fi
+	else
+		echo "\"${1}\" is either undefined, not a file or unreadable."
+	fi
+}
+
 sqlite3checks () {
     #verify if sqlite3 command is available
     sqlite3="$(which sqlite3)"
@@ -278,7 +330,7 @@ dbchecks () {
         echo "todo database not found, creating it…"
         initializedb
     else
-        SQLMODE=$(${sqlite3} ${TODODB} "SELECT sqlmode FROM info;")
+        SQLMODE=$("${sqlite3}" "${TODODB}" "SELECT sqlmode FROM info;") || { error "your database \"${TODODB}\" lacks info table. That should not happen." ; exit 3 ; }
         # we’ve got a fts3 database and sqlite3 is so old it can’t manage it.
         if [ "${SQLMODE}" == "fts3" ] && [ "${ACTUALSQLMODE}" == "db" ]
         then
@@ -299,24 +351,28 @@ if [ -z "${args}" ]
 then
     listentries
 else
-    if ( ! getopts ac:d:hin:s:S:u:v OPT )
+    if ( ! getopts ab:c:d:hin:p:r:s:S:t:u:v OPT )
     then
         usage
         exit 1
     fi
 fi
 
-while getopts ac:d:hin:s:S:u:v OPT;
+while getopts ab:c:d:hin:p:r:s:S:t:u:v OPT;
 do
     case $OPT in
         a) listallentries ;;
+        b) backup "$OPTARG" ;;
         c) completeentry "$OPTARG" ;;
         d) deleteentry "$OPTARG" ;;
         h) usage ;;
         i) informations "${TODODB}" ;;
         n) addentry "$OPTARG" ;;
+        p) dump "$OPTARG" ;;
+        r) restore "$OPTARG" ;;
         s) search "$OPTARG" ;;
         S) searchall "$OPTARG" ;;
+        t) import "$OPTARG" ;;
         u) unfinishentry "$OPTARG" ;;
         v) version ;;
         \?) usage

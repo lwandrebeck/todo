@@ -1,4 +1,4 @@
-.TH todo 1 "April 01, 2017" "version 0.9.5" "USER COMMANDS"
+.TH todo 1 "April 02, 2017" "version 0.9.6" "USER COMMANDS"
 
 .SH NAME
 todo \- simple todo list manager written in Bash, using SQLite to store your todo list data.
@@ -24,6 +24,9 @@ Lists all valid tasks (completed ones are ignored).
 \-a
 Lists all tasks, even ones marked as completed.
 .TP
+\-b
+Binary Backup of database. Argument is filename backup and must be "quoted". Otherwise, filename may be misunderstood (especially if space or other special characters do compose backup filename).
+.TP
 \-c
 Mark as completed task with corresponding rowid. rowid is an integer.
 .TP
@@ -39,11 +42,20 @@ Display informations about your todo database (SQL mode used, date of database c
 \-n
 Create a new task. Argument is task description and must be "quoted". Otherwise, task will be created with only the 1st word of description.
 .TP
+\-p
+DumP database in SQL format. Argument is a filename, and must be "quoted". Otherwise, filename may not be correctly understood (especially in case of space or other special character) and dump will not be named as intented.
+.TP
+\-r
+Restore a binary backup of database. Argument is filename, and must be "quoted". Otherwise, filename may not be correctly understood (especially in case of space or other special character), and restore will fail.
+.TP
 \-s
 Search for unfinished tasks (not marked as completed) containing either '%word%' (*word* in shell equivalent) if database was created using old format, or ' word ' if using FTS3 (Full Text Search) engine of SQLite (most likely the case).
 .TP
 \-S
 Search for still valid and completed tasks containing either '%word%' (*word* in shell equivalent) if database was created using old format, or ' word ' if using FTS3 (Full Text Search) engine of SQLite (most likely the case).
+.TP
+\-t
+ImporT a dump in SQL format. Argument is a filename, and must be "quoted". !!! BEWARE !!! Content of database will be erased before import.
 .TP
 \-u
 Mark a completed task as unfinished. Argument is integer.
@@ -96,6 +108,7 @@ todo.1 (man page)
 5: There was a problem creating directory destined to store todo database.
 .PP
 6: Database directory is not writable, so we can’t store todo database there.
+7: There was a problem during backup or restore (no write rights on location ? Disk full ? Wrong type of file…)
 
 .SH AUTHOR
 Laurent Wandrebeck (l.wandrebeck (at) quelquesmots.fr)
