@@ -27,7 +27,7 @@ set -e
 set -u
 
 repo="https://github.com/lwandrebeck/todo"
-version="0.9.6"
+version="0.9.7"
 
 version () {
     echo "${version}"
@@ -42,6 +42,8 @@ usage() {
     -d rowid : Delete task with rowid from database (no cancel possible).
     -h : This help.
     -i : informations about database.
+    -m \"/absolute/path\": move database to another directory and update .todorc file accordingly.
+    -M \"/absolute/path\" : move database to another directory, update .todorc file accordingly, and create dir if it does not exist.
     -n \"task description\" : Create a New task. Creation time is stored at the moment command is issued.
     -p \"filename\" : DumP database in SQL format to a given file. Content will be overwritten if existing.
     -r \"filename\" : Restore a binary backup. !!! BEWARE !!! Database will be overwritten (previous content will be lost).
@@ -72,8 +74,8 @@ informations () {
     query="SELECT * FROM info;"
     echo "Your todo database is located at: \"${1}\"
 SQL mode used, database creation time, todo version when db was created, SQLite version at db creation."
-	"${sqlite3}" "${TODODB}" ".dbinfo" || { error "informations function: .dbinfo" ; exit 3 ; }
     "${sqlite3}" -header -column "${TODODB}" "${query}" || { error "informations function: ${query}" ; exit 3 ; }
+    "${sqlite3}" "${TODODB}" ".dbinfo" || { error "informations function: .dbinfo" ; exit 3 ; }
 }
 
 initializedb () {
@@ -87,11 +89,11 @@ initializedb () {
         *      ) echo "${SQLMODE}" "is not a valid SQLMODE value. That definitively should not have happened. Please report a bug at ${repo}"; exit 2 ;;
     esac
     initializedb_rollback () {
-		rm -f "${TODODB}"
-		exit 3
-	}
-	# better no db than a partially initialized one.
-	trap initializedb_rollback INT TERM EXIT
+        rm -f "${TODODB}"
+        exit 3
+    }
+    # better no db than a partially initialized one.
+    trap initializedb_rollback INT TERM EXIT
     "${sqlite3}" "${TODODB}" "${query}" || { error "initializedb function: ${query}" ; exit 3 ; }
     "${sqlite3}" "${TODODB}" "${insert}" || { error "initializedb function: ${insert}" ; exit 3 ; }
     "${sqlite3}" "${TODODB}" "${query2}" || { error "initializedb function: ${query2}" ; exit 3 ; }
@@ -228,12 +230,12 @@ todorc () {
             fi
         fi
         todorc_rollback () {
-			rm -f "${TODORC}"
-			exit
-		}
-		# better no .todorc than an incomplete one
+            rm -f "${TODORC}"
+            exit
+        }
+        # better no .todorc than an incomplete one
         trap todorc_rollback INT TERM EXIT
-        echo "TODODB=\"${TODODB}\"" >> "${TODORC}"
+        echo "TODODB=\"${TODODB}\"" > "${TODORC}"
         echo "SQLITEOPTS=\"-header -column -init ${TODOSQLITERC}\"" >> "${TODORC}"
         # get rid of the trap
         trap - INT TERM EXIT
@@ -246,12 +248,12 @@ todosqliterc () {
     TODOSQLITERC="${HOME}/.todosqliterc"
     if [ ! -f "${TODOSQLITERC}" ]
     then
-		todosqliterc_rollback () {
-			rm -f "${TODOSQLITERC}"
-			exit
-		}
-		# better no .todosqliterc than an incomplete one
-		trap todosqliterc_rollback INT TERM EXIT
+        todosqliterc_rollback () {
+            rm -f "${TODOSQLITERC}"
+            exit
+        }
+        # better no .todosqliterc than an incomplete one
+        trap todosqliterc_rollback INT TERM EXIT
         echo ".width 5 83 19 19" > "${TODOSQLITERC}"
         # get rid of the trap
         trap - INT TERM EXIT
@@ -260,50 +262,50 @@ todosqliterc () {
 }
 
 dump () {
-	"${sqlite3}" "${TODODB}" ".dump" > "${1}" || { error "in dump function \"${sqlite3}\" \"${TODODB}\" \".dump\" > \"${1}\"" ; exit 3 ; }
-	echo "database \"${TODODB}\" successfully dumped in SQL format to \"${1}\""
+    "${sqlite3}" "${TODODB}" ".dump" > "${1}" || { error "in dump function \"${sqlite3}\" \"${TODODB}\" \".dump\" > \"${1}\"" ; exit 3 ; }
+    echo "database \"${TODODB}\" successfully dumped in SQL format to \"${1}\""
 }
 
 import () {
     if [ ! -z "${1}" ] && [ -r "${1}" ] && [ -f "${1}" ]
     then
-		"${sqlite3}" "${TODODB}" "DROP TABLE info;" || { error "import function. DROP TABLE info;" ; exit 3 ; }
-		"${sqlite3}" "${TODODB}" "DROP TABLE todo;" || { error "import function. DROP TABLE info;" ; exit 3 ; }
-		"${sqlite3}" "${TODODB}" < "${1}"  || { error "import function at import phase." ; exit 3 ; }
-		echo "todo database dump \"${1}\" has successfully replaced \"${TODODB}\" content."
-	else
-		error "\"${1}\" is either empty, non readable, or not a file. Database was not modified."
-	fi
+        "${sqlite3}" "${TODODB}" "DROP TABLE info;" || { error "import function. DROP TABLE info;" ; exit 3 ; }
+        "${sqlite3}" "${TODODB}" "DROP TABLE todo;" || { error "import function. DROP TABLE info;" ; exit 3 ; }
+        "${sqlite3}" "${TODODB}" < "${1}"  || { error "import function at import phase." ; exit 3 ; }
+        echo "todo database dump \"${1}\" has successfully replaced \"${TODODB}\" content."
+    else
+        error "\"${1}\" is either empty, non readable, or not a file. Database was not modified."
+    fi
 }
 
 backup () {
-	# do a binary backup of database.
-	if [ ! -z "${1}" ] && [ ! -e "${1}" ]
-	then
-		"${sqlite3}" "${TODODB}" ".backup ${1}" || { error "backup function : Error while backup-ing database to \"${1}\". Exiting." ; exit 7 ; }
-		echo "\"${TODODB}\" was successfully backup-ed to \"${1}\""
-	else
-		echo "\"${1}\" is either empty or already existing. Backup aborded."
-	fi
+    # do a binary backup of database.
+    if [ ! -z "${1}" ] && [ ! -e "${1}" ]
+    then
+        "${sqlite3}" "${TODODB}" ".backup ${1}" || { error "backup function : Error while backup-ing database to \"${1}\". Exiting." ; exit 7 ; }
+        echo "\"${TODODB}\" was successfully backup-ed to \"${1}\""
+    else
+        echo "\"${1}\" is either empty or already existing. Backup aborded."
+    fi
 }
 
 restore () {
-	# restore a binary backup of database.
-	if [ ! -z "${1}" ] && [ -f "${1}" ] && [ -r "${1}" ]
-	then
-		# be sure the file to restore is a SQLite database.
-		type=$(file "${1}" | grep "SQLite 3" | wc -l)
-		if [ ! ${type} ]
-		then
-			echo "\"${1}\" is not a SQLite 3 database. Cannot restore. Exiting."
-			exit 7
-		else
-			"${sqlite3}" "${TODODB}" ".restore ${1}" || { error "restore function : Error while restoring database. Disk full ? Database may be corrupted :(. Exiting." ; exit 7 ; }
-			echo "Database successfully restored from backup \"${1}\""
-		fi
-	else
-		echo "\"${1}\" is either undefined, not a file or unreadable."
-	fi
+    # restore a binary backup of database.
+    if [ ! -z "${1}" ] && [ -f "${1}" ] && [ -r "${1}" ]
+    then
+        # be sure the file to restore is a SQLite database.
+        type=$(file "${1}" | grep "SQLite 3" | wc -l)
+        if [ ! ${type} ]
+        then
+            echo "\"${1}\" is not a SQLite 3 database. Cannot restore. Exiting."
+            exit 7
+        else
+            "${sqlite3}" "${TODODB}" ".restore ${1}" || { error "restore function : Error while restoring database. Disk full ? Database may be corrupted :(. Exiting." ; exit 7 ; }
+            echo "Database successfully restored from backup \"${1}\""
+        fi
+    else
+        echo "\"${1}\" is either undefined, not a file or unreadable."
+    fi
 }
 
 sqlite3checks () {
@@ -340,45 +342,95 @@ dbchecks () {
     fi
 }
 
+movedb () {
+	if [ ! -d "${1}" ]
+	then
+		echo "\"${1}\" is not a directory"
+		exit 5
+	else
+		# we can write, there’s no ${1}/.todo.db, and directory begins with a / (absolute path)
+		if [ -w "${1}" ] && [ ! -e "${1}/.todo.db" ] && [ "${1:0:1}" == "/" ]
+		then
+			mv "${TODODB}" "${1}/" || { error "Move of database has failed. ~/.todorc has not been modified." ; exit 8 ; }
+			echo "TODODB=\"${1}/.todo.db\"" > "${TODORC}.new"
+			echo "SQLITEOPTS=\"${SQLITEOPTS}\"" >> "${TODORC}.new"
+			mv -f "${TODORC}.new" "${TODORC}"
+		else
+			echo "Either \"${1}\" is not writable, or \"${1}/.todo.db\" already exists. Please fix."
+			exit 8
+		fi
+	fi
+}
+
+mkdirmovedb () {
+	if [ ! -d "${1}" ] && [ "${1:0:1}" == "/" ]
+	then
+		mkdir -p "${1}" || error "Error creating new directory to store database."
+		exit 5
+	else
+		if [ "${1:0:1}" == "/" ]
+		then
+			echo "\"${1}\" is not an absolute path."
+			exit 5
+		fi
+	fi
+	# we can write, and there’s no ${1}/.todo.db
+	if [ -w "${1}" ] && [ ! -e "${1}/.todo.db" ]
+	then
+		mv "${TODODB}" "${1}/" || { error "Move of database has failed. ~/.todorc has not been modified." ; exit 8 ; }
+		echo "TODODB=\"${1}/.todo.db\"" > "${TODORC}.new"
+		echo "SQLITEOPTS=\"${SQLITEOPTS}\"" >> "${TODORC}.new"
+		mv -f "${TODORC}.new" "${TODORC}"
+	else
+		echo "Either \"${1}\" is not writable, or \"${1}/.todo.db\" already exists. Please fix."
+		exit 8
+	fi
+}
+
+main () {
+	#satisfy set -u
+	args=${1:-}
+	if [ -z "${args}" ]
+	then
+		listentries
+	else
+		if ( ! getopts ab:c:d:him:M:n:p:r:s:S:t:u:v OPT )
+		then
+			usage
+			exit 1
+		fi
+	fi
+
+	while getopts ab:c:d:him:M:n:p:r:s:S:t:u:v OPT;
+	do
+		case $OPT in
+			a) listallentries ;;
+			b) backup "$OPTARG" ;;
+			c) completeentry "$OPTARG" ;;
+			d) deleteentry "$OPTARG" ;;
+			h) usage ;;
+			i) informations "${TODODB}" ;;
+			m) movedb "$OPTARG" ;;
+			M) mkdirmovedb "$OPTARG" ;;
+			n) addentry "$OPTARG" ;;
+			p) dump "$OPTARG" ;;
+			r) restore "$OPTARG" ;;
+			s) search "$OPTARG" ;;
+			S) searchall "$OPTARG" ;;
+			t) import "$OPTARG" ;;
+			u) unfinishentry "$OPTARG" ;;
+			v) version ;;
+			\?) usage
+				exit ;;
+			:) echo "Missing argument for $OPT"
+				usage
+				exit ;;
+		esac
+	done
+}
+
 todosqliterc
 todorc
 sqlite3checks
 dbchecks
-
-#satisfy set -u
-args=${1:-}
-if [ -z "${args}" ]
-then
-    listentries
-else
-    if ( ! getopts ab:c:d:hin:p:r:s:S:t:u:v OPT )
-    then
-        usage
-        exit 1
-    fi
-fi
-
-while getopts ab:c:d:hin:p:r:s:S:t:u:v OPT;
-do
-    case $OPT in
-        a) listallentries ;;
-        b) backup "$OPTARG" ;;
-        c) completeentry "$OPTARG" ;;
-        d) deleteentry "$OPTARG" ;;
-        h) usage ;;
-        i) informations "${TODODB}" ;;
-        n) addentry "$OPTARG" ;;
-        p) dump "$OPTARG" ;;
-        r) restore "$OPTARG" ;;
-        s) search "$OPTARG" ;;
-        S) searchall "$OPTARG" ;;
-        t) import "$OPTARG" ;;
-        u) unfinishentry "$OPTARG" ;;
-        v) version ;;
-        \?) usage
-            exit ;;
-        :) echo "Missing argument for $OPT"
-           usage
-           exit ;;
-    esac
-done
+main $@
