@@ -27,6 +27,17 @@ a simplistic todo cli written in Bash, using SQLite.
 
 ## Todo (no pun intented)
 - [ ] DEB Packaging.
+- [ ] Code cleanup, use local and readonly variables as much as possible.
+- [ ] Use proper case for variables (CAP are for exported variables by convention).
+
+## Won’t implement
+- [ ] Allow a category personnal/job for each todo entry. NOPE (too much changes)
+
+## Known bugs
+- [x] -b does not honor "quoted filenames"
+- [x] -p does not honor "quoted filenames"
+- [x] -r does not honor "quoted filenames"
+- [x] -t does not honor "quoted filenames"
 
 todo SQL database is very simple:
 

@@ -1,11 +1,11 @@
-.TH todo 1 "April 03, 2017" "version 0.9.7" "USER COMMANDS"
+.TH todo 1 "April 04, 2017" "version 0.9.8" "USER COMMANDS"
 
 .SH NAME
 todo \- simple todo list manager written in Bash, using SQLite to store your todo list data.
 
 .SH SYNOPSYS
 .B todo
-[\-a] [\-c rowid] [\-d rowid] [\-h] [\-i] [\-n "task description"] [\-s word] [\-S word] [\-u rowid] [\-v]
+[\-a] [\-b binaryfilename] [\-c rowid] [\-d rowid] [\-h] [\-i] [\-m "/new/path"] [\-M "/new/path"] [\-p "/path/to/sqldumpfile"] [\-n "task description"] [\-s word] [\-t "/path/to/sqldumpfile"] [\-S word] [\-u rowid] [\-v]
 
 .SH DESCRIPTION
 todo is a simple todo list manager written in Bash, using SQLite to store your todo list data.
@@ -25,7 +25,7 @@ Lists all valid tasks (completed ones are ignored).
 Lists all tasks, even ones marked as completed.
 .TP
 \-b
-Binary Backup of database. Argument is filename backup and must be "quoted". Otherwise, filename may be misunderstood (especially if space or other special characters do compose backup filename).
+Binary Backup of database. Argument is backup filename and must not contain any special character (space etc, getopts do not like it). Otherwise, filename may not be correctly understood, and backup will not have the name intented.
 .TP
 \-c
 Mark as completed task with corresponding rowid. rowid is an integer.
@@ -52,7 +52,7 @@ Create a new task. Argument is task description and must be "quoted". Otherwise,
 DumP database in SQL format. Argument is a filename, and must be "quoted". Otherwise, filename may not be correctly understood (especially in case of space or other special character) and dump will not be named as intented.
 .TP
 \-r
-Restore a binary backup of database. Argument is filename, and must be "quoted". Otherwise, filename may not be correctly understood (especially in case of space or other special character), and restore will fail.
+Restore a binary backup of database. Argument is filename, and must not contain any special character (getopts do not like it). Otherwise, filename may not be correctly understood (especially in case of space or other special character), and restore will fail.
 .TP
 \-s
 Search for unfinished tasks (not marked as completed) containing either '%word%' (*word* in shell equivalent) if database was created using old format, or ' word ' if using FTS3 (Full Text Search) engine of SQLite (most likely the case).
