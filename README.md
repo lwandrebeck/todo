@@ -20,7 +20,7 @@ a simplistic todo cli written in Bash, using SQLite.
 - [x] Man page.
 - [x] database path customization at first launch
 - [x] RPM Packaging.
-- [x] DumP (-p) and imporT (-t) of database in SQL format.
+- [x] DumP (-p) and imporT (-t, with a default backup before import, -T, without) of database in SQL format.
 - [x] Backup (-b) and Restore (-r) of database in binary format.
 - [x] Ability to move (-m) database to another directory, updates .todorc accordingly.
 - [x] Ability to move (-M) database to another potentially non-existing directory, updates .todorc accordingly.

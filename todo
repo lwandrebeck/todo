@@ -27,7 +27,7 @@ set -e
 set -u
 
 repo="https://github.com/lwandrebeck/todo"
-version="0.9.8"
+version="0.9.9"
 
 version () {
     echo "${version}"
@@ -118,8 +118,7 @@ completeentry () {
         then
             local readonly now=$(date +"%Y-%m-%d %R:%S")
             local readonly query="UPDATE todo SET completed='${now}' WHERE rowid=${id};"
-            # TODO check if task is already marked as completed or simply update completed field ?
-            # local readonly alreadycompleted="SELECT rowid FROM todo "
+            # Completed field is simply updated without any check of its previous status.
             "${sqlite3}" "${TODODB}" "${query}" || { error "completeentry function: ${query}" ; exit 3 ; }
             echo "Task ${id} marked as completed. Keep up the good work ! :)"
         else
@@ -136,7 +135,7 @@ unfinishentry () {
     else
         if [[ "${1}" =~ [0-9] ]]
         then
-            # TODO check if task is already marked as unfinished or simply update field ?
+            # Completed field is simply updated without any check of its previous status.
             local readonly query="UPDATE todo SET completed=NULL WHERE rowid=${1};"
             "${sqlite3}" "${TODODB}" "${query}" || { error "unfinishentry function: ${query}" ; exit 3 ; }
         else
@@ -266,15 +265,28 @@ dump () {
 }
 
 import () {
+    "${sqlite3}" "${TODODB}" "DROP TABLE info;" || { error "import function. DROP TABLE info;" ; exit 3 ; }
+    echo "info table has been successfully dropped."
+    "${sqlite3}" "${TODODB}" "DROP TABLE todo;" || { error "import function. DROP TABLE info;" ; exit 3 ; }
+    echo "todo table has been successfully dropped."
+    cat "${1}" | "${sqlite3}" "${TODODB}" || { error "import function at import phase." ; exit 3 ; }
+    echo "todo database dump \"${1}\" has successfully replaced \"${TODODB}\" content."
+}
+
+importwb () {
     if [ ! -z "${1}" ] && [ -r "${1}" ] && [ -f "${1}" ]
     then
-        # TODO do a backup before importing.
-        "${sqlite3}" "${TODODB}" "DROP TABLE info;" || { error "import function. DROP TABLE info;" ; exit 3 ; }
-        echo "info table has been successfully dropped."
-        "${sqlite3}" "${TODODB}" "DROP TABLE todo;" || { error "import function. DROP TABLE info;" ; exit 3 ; }
-        echo "todo table has been successfully dropped."
-        cat "${1}" | "${sqlite3}" "${TODODB}" || { error "import function at import phase." ; exit 3 ; }
-        echo "todo database dump \"${1}\" has successfully replaced \"${TODODB}\" content."
+        backup "${TODODB}.beforeimportbackup"
+        import "${1}"
+    else
+        error "\"${1}\" is either empty, non readable, or not a file. Database was not modified."
+    fi
+}
+
+importwob () {
+    if [ ! -z "${1}" ] && [ -r "${1}" ] && [ -f "${1}" ]
+    then
+        import "${1}"
     else
         error "\"${1}\" is either empty, non readable, or not a file. Database was not modified."
     fi
@@ -398,14 +410,14 @@ main () {
         listentries
         exit
     else
-        if ( ! getopts ab:c:d:him:M:n:p:r:s:S:t:u:v OPT )
+        if ( ! getopts ab:c:d:him:M:n:p:r:s:S:t:T:u:v OPT )
         then
             usage
             exit 1
         fi
     fi
 
-    while getopts ab:c:d:him:M:n:p:r:s:S:t:u:v OPT;
+    while getopts ab:c:d:him:M:n:p:r:s:S:t:T:u:v OPT;
     do
         case $OPT in
             a) listallentries ;;
@@ -421,7 +433,8 @@ main () {
             r) restore "$OPTARG" ;;
             s) search "$OPTARG" ;;
             S) searchall "$OPTARG" ;;
-            t) import "$OPTARG" ;;
+            t) importwb "$OPTARG" ;;
+            T) importwob "$OPTARG" ;;
             u) unfinishentry "$OPTARG" ;;
             v) version ;;
             \?) usage

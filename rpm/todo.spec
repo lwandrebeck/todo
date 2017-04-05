@@ -32,6 +32,9 @@ install -p -m 644  man/todo.1.gz %{buildroot}/%{_mandir}/man1/
 %doc README.md
 
 %changelog
+* Wed Apr 05 2017 Laurent Wandrebeck <l.wandrebeck@quelquesmots.fr> - 0.9.9
+- 0.9.9 release.
+
 * Wed Apr 05 2017 Laurent Wandrebeck <l.wandrebeck@quelquesmots.fr> - 0.9.8
 - 0.9.8 release.
 

@@ -1,11 +1,11 @@
-.TH todo 1 "April 05, 2017" "version 0.9.8" "USER COMMANDS"
+.TH todo 1 "April 05, 2017" "version 0.9.9" "USER COMMANDS"
 
 .SH NAME
 todo \- simple todo list manager written in Bash, using SQLite to store your todo list data.
 
 .SH SYNOPSYS
 .B todo
-[\-a] [\-b binaryfilename] [\-c rowid] [\-d rowid] [\-h] [\-i] [\-m "/new/path"] [\-M "/new/path"] [\-p "/path/to/sqldumpfile"] [\-n "task description"] [\-s word] [\-t "/path/to/sqldumpfile"] [\-S word] [\-u rowid] [\-v]
+[\-a] [\-b binaryfilename] [\-c rowid] [\-d rowid] [\-h] [\-i] [\-m "/new/path"] [\-M "/new/path"] [\-p "/path/to/sqldumpfile"] [\-n "task description"] [\-s word] [\-t "/path/to/sqldumpfile"] [\-T "/path/to/sqldumpfile"] [\-S word] [\-u rowid] [\-v]
 
 .SH DESCRIPTION
 todo is a simple todo list manager written in Bash, using SQLite to store your todo list data.
@@ -61,7 +61,10 @@ Search for unfinished tasks (not marked as completed) containing either '%word%'
 Search for still valid and completed tasks containing either '%word%' (*word* in shell equivalent) if database was created using old format, or ' word ' if using FTS3 (Full Text Search) engine of SQLite (most likely the case).
 .TP
 \-t
-ImporT a dump in SQL format. Argument is a filename, and must be "quoted". !!! BEWARE !!! Content of database will be erased before import.
+ImporT a dump in SQL format. Argument is a filename, and must be "quoted". A backup of the database is done before import. !!! BEWARE !!! Content of database will be erased before import.
+.TP
+\-T
+ImporT a dump in SQL format. Argument is a filename, and must be "quoted". !!! BEWARE !!! No backup of the database is done before import. Content of database will be erased before import.
 .TP
 \-u
 Mark a completed task as unfinished. Argument is integer.
