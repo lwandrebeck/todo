@@ -27,7 +27,7 @@ set -e
 set -u
 
 repo="https://github.com/lwandrebeck/todo"
-version="0.9.7"
+version="0.9.8"
 
 version () {
     echo "${version}"
@@ -441,4 +441,4 @@ todosqliterc
 todorc
 sqlite3checks
 dbchecks
-main $@
+main "$@"

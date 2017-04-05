@@ -31,13 +31,10 @@ a simplistic todo cli written in Bash, using SQLite.
 - [ ] Use proper case for variables (CAP are for exported variables by convention).
 
 ## Won’t implement
-- [ ] Allow a category personnal/job for each todo entry. NOPE (too much changes)
+- [ ] Allow a category personnal/job for each todo entry. NOPE (too much changes (hint: add a keyword or something in task description.))
 
 ## Known bugs
-- [x] -b does not honor "quoted filenames"
-- [x] -p does not honor "quoted filenames"
-- [x] -r does not honor "quoted filenames"
-- [x] -t does not honor "quoted filenames"
+- None discovered yet.
 
 todo SQL database is very simple:
 
