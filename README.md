@@ -34,7 +34,7 @@ a simplistic todo cli written in Bash, using SQLite.
 - [ ] Allow a category personnal/job for each todo entry. NOPE (too much changes (hint: add a keyword or something in task description.))
 
 ## Known bugs
-- [x] Import (-t) fails causing loss of database content. Do NOT erase your dump.
+- [x] -d fails if entry is not numeric (which should not happen)
 
 todo SQL database is very simple:
 

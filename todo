@@ -277,7 +277,7 @@ import () {
         echo "info table has been successfully dropped."
         "${sqlite3}" "${TODODB}" "DROP TABLE todo;" || { error "import function. DROP TABLE info;" ; exit 3 ; }
         echo "todo table has been successfully dropped."
-        "${sqlite3}" "${TODODB}" ".import '${1}'"  || { error "import function at import phase." ; exit 3 ; }
+        cat "${1}" | "${sqlite3}" "${TODODB}" || { error "import function at import phase." ; exit 3 ; }
         echo "todo database dump \"${1}\" has successfully replaced \"${TODODB}\" content."
     else
         error "\"${1}\" is either empty, non readable, or not a file. Database was not modified."
