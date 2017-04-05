@@ -114,18 +114,17 @@ completeentry () {
     then
         usage
     else
-        declare -i -r id="${1}"
-        if [ "${id}" != "${1}" ]
+        if [[ "${id}" =~ [0-9] ]]
         then
-            #id is not numeric
-            usage
-        else
             local readonly now=$(date +"%Y-%m-%d %R:%S")
             local readonly query="UPDATE todo SET completed='${now}' WHERE rowid=${id};"
             # TODO check if task is already marked as completed or simply update completed field ?
             # local readonly alreadycompleted="SELECT rowid FROM todo "
             "${sqlite3}" "${TODODB}" "${query}" || { error "completeentry function: ${query}" ; exit 3 ; }
             echo "Task ${id} marked as completed. Keep up the good work ! :)"
+        else
+            #id is not numeric
+            usage
         fi
     fi
 }
@@ -135,15 +134,14 @@ unfinishentry () {
     then
         usage
     else
-        declare -i -r id="${1}"
-        if [ "${id}" != "${1}" ]
+        if [[ "${1}" =~ [0-9] ]]
         then
+            # TODO check if task is already marked as unfinished or simply update field ?
+            local readonly query="UPDATE todo SET completed=NULL WHERE rowid=${1};"
+            "${sqlite3}" "${TODODB}" "${query}" || { error "unfinishentry function: ${query}" ; exit 3 ; }
+        else
             #id is not numeric
             usage
-        else
-            # TODO check if task is already marked as unfinished or simply update field ?
-            local readonly query="UPDATE todo SET completed=NULL WHERE rowid=${id};"
-            "${sqlite3}" "${TODODB}" "${query}" || { error "unfinishentry function: ${query}" ; exit 3 ; }
         fi
     fi
 }
@@ -153,15 +151,13 @@ deleteentry () {
     then
         usage
     else
-        declare -i id
-        local id="${1}"
-        if [ "${id}" != "${1}" ]
+        if [[ "${1}" =~ [0-9] ]]
         then
+            local readonly query="DELETE FROM todo WHERE rowid=${1};"
+            "${sqlite3}" "${TODODB}" "${query}" || { error "deleteentry function: ${query}" ; exit 3 ; }
+        else
             #id is not numeric
             usage
-        else
-            local readonly query="DELETE FROM todo WHERE rowid=${id};"
-            "${sqlite3}" "${TODODB}" "${query}" || { error "deleteentry function: ${query}" ; exit 3 ; }
         fi
     fi
 }
