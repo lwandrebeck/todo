@@ -24,11 +24,12 @@ a simplistic todo cli written in Bash, using SQLite.
 - [x] Backup (-b) and Restore (-r) of database in binary format.
 - [x] Ability to move (-m) database to another directory, updates .todorc accordingly.
 - [x] Ability to move (-M) database to another potentially non-existing directory, updates .todorc accordingly.
+- [x] Ability to update (-e) database path if another database already exists.
+- [x] Ability to update (-E) database path if another database already exists, and erase previous database file if possible.
 
 ## Todo (no pun intented)
 - [ ] DEB Packaging.
-- [ ] Code cleanup, use local and readonly variables as much as possible.
-- [ ] Use proper case for variables (CAP are for exported variables by convention).
+- [ ] Would it be better to keep global variables way of bash (tododb, sqliteopts, actualsqlmode, sqlmode), or declare it as local and pass it as arguments to be really clean ?
 
 ## Won’t implement
 - [ ] Allow a category personnal/job for each todo entry. NOPE (too much changes (hint: add a keyword or something in task description.))

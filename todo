@@ -27,7 +27,7 @@ set -e
 set -u
 
 repo="https://github.com/lwandrebeck/todo"
-version="0.9.9"
+version="0.9.10"
 
 version () {
     echo "${version}"
@@ -40,6 +40,8 @@ usage() {
     -b \"filename\" : Binary Backup of database to filename (which must not exist).
     -c rowid : Mark task with rowid as Completed at the moment the command is issued.
     -d rowid : Delete task with rowid from database (no cancel possible).
+    -e \"/absolute/path\": update .todorc so database path points to an existing directory where .todo.db file already exist.
+    -E \"/absolute/path\": update .todorc so database path points to an existing directory where .todo.db file already exist and erase database in previous path.
     -h : This Help.
     -i : Informations about database.
     -m \"/absolute/path\": Move database to another directory and update .todorc file accordingly.
@@ -73,39 +75,39 @@ informations () {
     local readonly query="SELECT * FROM info;"
     echo "Your todo database is located at: \"${1}\"
 SQL mode used, database creation time, todo version when db was created, SQLite version at db creation."
-    "${sqlite3}" -header -column "${TODODB}" "${query}" || { error "informations function: ${query}" ; exit 3 ; }
+    "${sqlite3}" -header -column "${tododb}" "${query}" || { error "informations function: ${query}" ; exit 3 ; }
     echo
-    "${sqlite3}" "${TODODB}" ".dbinfo" || { error "informations function: .dbinfo" ; exit 3 ; }
+    "${sqlite3}" "${tododb}" ".dbinfo" || { error "informations function: .dbinfo" ; exit 3 ; }
 }
 
 initializedb () {
     local readonly now=$(date +"%Y-%m-%d %R:%S")
     local readonly sqliteversion="$(${sqlite3} --version)"
     local readonly query="CREATE TABLE info(sqlmode TEXT NOT NULL, creation TEXT NOT NULL, todoversion TEXT NOT NULL, sqliteversion TEXT NOT NULL);"
-    local readonly insert="INSERT INTO info(sqlmode, creation, todoversion, sqliteversion) VALUES ('${ACTUALSQLMODE}', '${now}', '${version}', '${sqliteversion}');"
-    case "${ACTUALSQLMODE}" in
+    local readonly insert="INSERT INTO info(sqlmode, creation, todoversion, sqliteversion) VALUES ('${actualsqlmode}', '${now}', '${version}', '${sqliteversion}');"
+    case "${actualsqlmode}" in
         "db"   ) query2="CREATE TABLE todo (title TEXT NOT NULL, creation TEXT NOT NULL, completed TEXT);" ;;
-        "fts3" ) query2="CREATE VIRTUAL TABLE todo USING ${ACTUALSQLMODE}(title TEXT NOT NULL, creation TEXT NOT NULL, completed TEXT);" ;;
-        *      ) echo "${SQLMODE}" "is not a valid SQLMODE value. That definitively should not have happened. Please report a bug at ${repo}"; exit 2 ;;
+        "fts3" ) query2="CREATE VIRTUAL TABLE todo USING ${actualsqlmode}(title TEXT NOT NULL, creation TEXT NOT NULL, completed TEXT);" ;;
+        *      ) echo "${sqlmode}" "is not a valid sqlmode value. That definitively should not have happened. Please report a bug at ${repo}"; exit 2 ;;
     esac
     initializedb_rollback () {
-        rm -f "${TODODB}"
+        rm -f "${tododb}"
         exit 3
     }
     # better no db than a partially initialized one.
     trap initializedb_rollback INT TERM EXIT
-    "${sqlite3}" "${TODODB}" "${query}" || { error "initializedb function: ${query}" ; exit 3 ; }
-    "${sqlite3}" "${TODODB}" "${insert}" || { error "initializedb function: ${insert}" ; exit 3 ; }
-    "${sqlite3}" "${TODODB}" "${query2}" || { error "initializedb function: ${query2}" ; exit 3 ; }
+    "${sqlite3}" "${tododb}" "${query}" || { error "initializedb function: ${query}" ; exit 3 ; }
+    "${sqlite3}" "${tododb}" "${insert}" || { error "initializedb function: ${insert}" ; exit 3 ; }
+    "${sqlite3}" "${tododb}" "${query2}" || { error "initializedb function: ${query2}" ; exit 3 ; }
     # get rid of the trap
     trap - INT TERM EXIT
-    echo "todo database \"${TODODB}\" successfully created"
+    echo "todo database \"${tododb}\" successfully created"
 }
 
 addentry () {
     local readonly now=$(date +"%Y-%m-%d %R:%S")
     local readonly query="INSERT INTO todo(title, creation, completed) VALUES('${1}', '${now}', NULL);"
-    "${sqlite3}" "${TODODB}" "${query}" || { error "addentry function: ${query}" ; exit 3 ; }
+    "${sqlite3}" "${tododb}" "${query}" || { error "addentry function: ${query}" ; exit 3 ; }
     echo "Task successfully added. Be brave !"
 }
 
@@ -114,13 +116,13 @@ completeentry () {
     then
         usage
     else
-        if [[ "${id}" =~ [0-9] ]]
+        if [[ "${1}" =~ [0-9] ]]
         then
             local readonly now=$(date +"%Y-%m-%d %R:%S")
-            local readonly query="UPDATE todo SET completed='${now}' WHERE rowid=${id};"
+            local readonly query="UPDATE todo SET completed='${now}' WHERE rowid=${1};"
             # Completed field is simply updated without any check of its previous status.
-            "${sqlite3}" "${TODODB}" "${query}" || { error "completeentry function: ${query}" ; exit 3 ; }
-            echo "Task ${id} marked as completed. Keep up the good work ! :)"
+            "${sqlite3}" "${tododb}" "${query}" || { error "completeentry function: ${query}" ; exit 3 ; }
+            echo "Task ${1} marked as completed. Keep up the good work ! :)"
         else
             #id is not numeric
             usage
@@ -137,7 +139,7 @@ unfinishentry () {
         then
             # Completed field is simply updated without any check of its previous status.
             local readonly query="UPDATE todo SET completed=NULL WHERE rowid=${1};"
-            "${sqlite3}" "${TODODB}" "${query}" || { error "unfinishentry function: ${query}" ; exit 3 ; }
+            "${sqlite3}" "${tododb}" "${query}" || { error "unfinishentry function: ${query}" ; exit 3 ; }
         else
             #id is not numeric
             usage
@@ -153,7 +155,9 @@ deleteentry () {
         if [[ "${1}" =~ [0-9] ]]
         then
             local readonly query="DELETE FROM todo WHERE rowid=${1};"
-            "${sqlite3}" "${TODODB}" "${query}" || { error "deleteentry function: ${query}" ; exit 3 ; }
+            # no check is done about task existence. DELETE does succeed even if task does not exist anymore.
+            "${sqlite3}" "${tododb}" "${query}" || { error "deleteentry function: ${query}" ; exit 3 ; }
+            echo "task \"${1}\" deleted."
         else
             #id is not numeric
             usage
@@ -163,120 +167,120 @@ deleteentry () {
 
 listentries () {
     local readonly query="SELECT rowid, title, creation FROM todo WHERE completed IS NULL;"
-    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null  || { error "listentries function: ${query}" ; exit 3 ; }
+    "${sqlite3}" ${sqliteopts} "${tododb}" "${query}" 2> /dev/null  || { error "listentries function: ${query}" ; exit 3 ; }
 }
 
 listallentries () {
     local readonly query="SELECT rowid, title, creation, completed FROM todo;"
-    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null || { error "listallentries function: ${query}" ; exit 3 ; }
+    "${sqlite3}" ${sqliteopts} "${tododb}" "${query}" 2> /dev/null || { error "listallentries function: ${query}" ; exit 3 ; }
 }
 
 search () {
     if [ ! -z "${1}" ]
     then
-        case "${SQLMODE}" in
+        case "${sqlmode}" in
             "db"   ) local readonly query="SELECT rowid, title, creation FROM todo WHERE completed IS NULL AND title LIKE '%${1}%';" ;;
             "fts3" ) local readonly query="SELECT rowid, title, creation FROM todo WHERE completed IS NULL AND title MATCH '${1}';" ;;
-            *      ) echo "${SQLMODE}" "is not a valid SQLMODE value. That definitively should not have happened. Please report a bug at ${repo}"; exit 2 ;;
+            *      ) echo "${sqlmode}" "is not a valid sqlmode value. That definitively should not have happened. Please report a bug at ${repo}"; exit 2 ;;
         esac
     else
         usage
     fi
-    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null || { error "search function: ${query}" ; exit 3 ; }
+    "${sqlite3}" ${sqliteopts} "${tododb}" "${query}" 2> /dev/null || { error "search function: ${query}" ; exit 3 ; }
 }
 
 searchall () {
     if [ ! -z "${1}" ]
     then
-        case "${SQLMODE}" in
+        case "${sqlmode}" in
             "db"   ) local readonly query="SELECT rowid, title, creation, completed FROM todo WHERE title LIKE '%${1}%';" ;;
             "fts3" ) local readonly query="SELECT rowid, title, creation, completed FROM todo WHERE title MATCH '${1}';" ;;
-            *      ) echo "${SQLMODE}" "is not a valid SQLMODE value. That definitively should not have happened. Please report a bug at ${repo}"; exit 2 ;;
+            *      ) echo "${sqlmode}" "is not a valid sqlmode value. That definitively should not have happened. Please report a bug at ${repo}"; exit 2 ;;
         esac
     else
         usage
     fi
-    "${sqlite3}" ${SQLITEOPTS} "${TODODB}" "${query}" 2> /dev/null || { error "searchall function: ${query}" ; exit 3 ; }
+    "${sqlite3}" ${sqliteopts} "${tododb}" "${query}" 2> /dev/null || { error "searchall function: ${query}" ; exit 3 ; }
 }
 
 todorc () {
     # create default ~/.todorc file if it does not exist.
-    TODORC="${HOME}/.todorc"
-    if [ ! -f "${TODORC}" ]
+    todorc="${HOME}/.todorc"
+    if [ ! -f "${todorc}" ]
     then
         echo "It looks like this is the first time you run todo. We hope you will like it"
         echo "Would you like to tweak todo database path ? (hit enter to keep default value (~/.todo.db), or give (potentially non-existing) dir) :"
-        read -p "enter dir $ " tododb
+        read -p "enter dir $ " tododbdir
         # user did not type anything
-        if [ -z "${tododb}" ]
+        if [ -z "${tododbdir}" ]
         then
-            TODODB="${HOME}/.todo.db"
+            tododb="${HOME}/.todo.db"
         else
             # that directory does not exist
-            if [ ! -d "${tododb}" ]
+            if [ ! -d "${tododbdir}" ]
             then
-                mkdir -p "${tododb}" || { error "todorc function: mkdir -p \"${tododb}\"" ; exit 5 ; }
+                mkdir -p "${tododbdir}" || { error "todorc function: mkdir -p \"${tododbdir}\"" ; exit 5 ; }
             else
                 #let’s assure we can write into the existing directory
-                if [ ! -w "${tododb}" ]
+                if [ ! -w "${tododbdir}" ]
                 then
-                    echo "todorc function: Error: \"${tododb}\" is not writable, we can’t store database there."
+                    echo "todorc function: Error: \"${tododbdir}\" is not writable, we can’t store database there."
                     exit 6
                 else
-                    TODODB="${tododb}/.todo.db"
+                    tododb="${tododbdir}/.todo.db"
                 fi
             fi
         fi
         todorc_rollback () {
-            rm -f "${TODORC}"
+            rm -f "${todorc}"
             exit
         }
         # better no .todorc than an incomplete one
         trap todorc_rollback INT TERM EXIT
-        echo "TODODB=\"${TODODB}\"" > "${TODORC}"
-        echo "SQLITEOPTS=\"-header -column -init ${TODOSQLITERC}\"" >> "${TODORC}"
+        echo "tododb=\"${tododb}\"" > "${todorc}"
+        echo "sqliteopts=\"-header -column -init ${todosqliterc}\"" >> "${todorc}"
         # get rid of the trap
         trap - INT TERM EXIT
-        echo "${TODORC} successfully created."
+        echo "${todorc} successfully created."
     fi
-    source "${TODORC}"
+    source "${todorc}"
 }
 
 todosqliterc () {
-    TODOSQLITERC="${HOME}/.todosqliterc"
-    if [ ! -f "${TODOSQLITERC}" ]
+    todosqliterc="${HOME}/.todosqliterc"
+    if [ ! -f "${todosqliterc}" ]
     then
         todosqliterc_rollback () {
-            rm -f "${TODOSQLITERC}"
+            rm -f "${todosqliterc}"
             exit
         }
         # better no .todosqliterc than an incomplete one
         trap todosqliterc_rollback INT TERM EXIT
-        echo ".width 5 83 19 19" > "${TODOSQLITERC}"
+        echo ".width 5 83 19 19" > "${todosqliterc}"
         # get rid of the trap
         trap - INT TERM EXIT
-        echo "${TODOSQLITERC} successfully created."
+        echo "${todosqliterc} successfully created."
     fi
 }
 
 dump () {
-    "${sqlite3}" "${TODODB}" ".dump" > "${1}" || { error "in dump function \"${sqlite3}\" \"${TODODB}\" \".dump\" > \"${1}\"" ; exit 3 ; }
-    echo "database \"${TODODB}\" successfully dumped in SQL format to \"${1}\""
+    "${sqlite3}" "${tododb}" ".dump" > "${1}" || { error "in dump function \"${sqlite3}\" \"${tododb}\" \".dump\" > \"${1}\"" ; exit 3 ; }
+    echo "database \"${tododb}\" successfully dumped in SQL format to \"${1}\""
 }
 
 import () {
-    "${sqlite3}" "${TODODB}" "DROP TABLE info;" || { error "import function. DROP TABLE info;" ; exit 3 ; }
+    "${sqlite3}" "${tododb}" "DROP TABLE info;" || { error "import function. DROP TABLE info;" ; exit 3 ; }
     echo "info table has been successfully dropped."
-    "${sqlite3}" "${TODODB}" "DROP TABLE todo;" || { error "import function. DROP TABLE info;" ; exit 3 ; }
+    "${sqlite3}" "${tododb}" "DROP TABLE todo;" || { error "import function. DROP TABLE info;" ; exit 3 ; }
     echo "todo table has been successfully dropped."
-    cat "${1}" | "${sqlite3}" "${TODODB}" || { error "import function at import phase." ; exit 3 ; }
-    echo "todo database dump \"${1}\" has successfully replaced \"${TODODB}\" content."
+    cat "${1}" | "${sqlite3}" "${tododb}" || { error "import function at import phase." ; exit 3 ; }
+    echo "todo database dump \"${1}\" has successfully replaced \"${tododb}\" content."
 }
 
 importwb () {
     if [ ! -z "${1}" ] && [ -r "${1}" ] && [ -f "${1}" ]
     then
-        backup "${TODODB}.beforeimportbackup"
+        backup "${tododb}.beforeimportbackup"
         import "${1}"
     else
         error "\"${1}\" is either empty, non readable, or not a file. Database was not modified."
@@ -296,8 +300,8 @@ backup () {
     # do a binary backup of database.
     if [ ! -z "${1}" ] && [ ! -e "${1}" ]
     then
-        "${sqlite3}" "${TODODB}" ".backup '${1}'" || { error "backup function : Error while backup-ing database to \"${1}\". Exiting." ; exit 7 ; }
-        echo "\"${TODODB}\" was successfully backup-ed to \"${1}\""
+        "${sqlite3}" "${tododb}" ".backup '${1}'" || { error "backup function : Error while backup-ing database to \"${1}\". Exiting." ; exit 7 ; }
+        echo "\"${tododb}\" was successfully backup-ed to \"${1}\""
     else
         echo "\"${1}\" is either empty or already existing. Backup aborded."
     fi
@@ -315,7 +319,7 @@ restore () {
             echo "\"${1}\" is not a SQLite 3 database. Cannot restore. Exiting."
             exit 7
         else
-            "${sqlite3}" "${TODODB}" ".restore '${1}'" || { error "restore function : Error while restoring database. Disk full ? Database may be corrupted :(. Exiting." ; exit 7 ; }
+            "${sqlite3}" "${tododb}" ".restore '${1}'" || { error "restore function : Error while restoring database. Disk full ? Database may be corrupted :(. Exiting." ; exit 7 ; }
             echo "Database successfully restored from backup \"${1}\""
         fi
     else
@@ -333,25 +337,25 @@ sqlite3checks () {
         exit 1
     fi
     # test if FTS is available
-    ACTUALSQLMODE="fts3"
+    actualsqlmode="fts3"
     local readonly tmp="$(mktemp)"
-    "${sqlite3}" "${tmp}" "CREATE VIRTUAL TABLE test USING ${ACTUALSQLMODE}(title TEXT NOT NULL);" 2> /dev/null || ACTUALSQLMODE="db"
+    "${sqlite3}" "${tmp}" "CREATE VIRTUAL TABLE test USING ${actualsqlmode}(title TEXT NOT NULL);" 2> /dev/null || actualsqlmode="db"
     # prevent remaining tmp file if todo is interrupted
     trap "rm -f '${tmp}' ; exit " INT TERM EXIT
     rm -f "${tmp}"
 }
 
 dbchecks () {
-    if [ ! -f "${TODODB}" ]
+    if [ ! -f "${tododb}" ]
     then
         echo "todo database not found, creating it…"
         initializedb
     else
-        SQLMODE=$("${sqlite3}" "${TODODB}" "SELECT sqlmode FROM info;") || { error "your database \"${TODODB}\" lacks info table. That should not happen." ; exit 3 ; }
+        sqlmode=$("${sqlite3}" "${tododb}" "SELECT sqlmode FROM info;") || { error "your database \"${tododb}\" lacks info table. That should not happen." ; exit 3 ; }
         # we’ve got a fts3 database and sqlite3 is so old it can’t manage it.
-        if [ "${SQLMODE}" == "fts3" ] && [ "${ACTUALSQLMODE}" == "db" ]
+        if [ "${sqlmode}" == "fts3" ] && [ "${actualsqlmode}" == "db" ]
         then
-            echo "Sorry, your todo database ${TODODB} uses FTS3 format, which your ${sqlite3} binary does not support. Exiting."
+            echo "Sorry, your todo database ${tododb} uses FTS3 format, which your ${sqlite3} binary does not support. Exiting."
             exit 4
         fi
     fi
@@ -366,10 +370,10 @@ movedb () {
         # we can write, there’s no ${1}/.todo.db, and directory begins with a / (absolute path)
         if [ -w "${1}" ] && [ ! -e "${1}/.todo.db" ] && [ "${1:0:1}" == "/" ]
         then
-            mv "${TODODB}" "${1}/" || { error "Move of database has failed. ~/.todorc has not been modified." ; exit 8 ; }
-            echo "TODODB=\"${1}/.todo.db\"" > "${TODORC}.new"
-            echo "SQLITEOPTS=\"${SQLITEOPTS}\"" >> "${TODORC}.new"
-            mv -f "${TODORC}.new" "${TODORC}"
+            mv "${tododb}" "${1}/" || { error "Move of database has failed. ~/.todorc has not been modified." ; exit 8 ; }
+            echo "tododb=\"${1}/.todo.db\"" > "${todorc}.new"
+            echo "sqliteopts=\"${sqliteopts}\"" >> "${todorc}.new"
+            mv -f "${todorc}.new" "${todorc}"
         else
             echo "Either \"${1}\" is not writable, or \"${1}/.todo.db\" already exists. Please fix."
             exit 8
@@ -392,15 +396,65 @@ mkdirmovedb () {
     # we can write, and there’s no ${1}/.todo.db
     if [ -w "${1}" ] && [ ! -e "${1}/.todo.db" ]
     then
-        mv "${TODODB}" "${1}/" || { error "Move of database has failed. ~/.todorc has not been modified." ; exit 8 ; }
-        echo "TODODB=\"${1}/.todo.db\"" > "${TODORC}.new"
-        echo "SQLITEOPTS=\"${SQLITEOPTS}\"" >> "${TODORC}.new"
-        mv -f "${TODORC}.new" "${TODORC}"
+        mv "${tododb}" "${1}/" || { error "Move of database has failed. ~/.todorc has not been modified." ; exit 8 ; }
+        echo "tododb=\"${1}/.todo.db\"" > "${todorc}.new"
+        echo "sqliteopts=\"${sqliteopts}\"" >> "${todorc}.new"
+        mv -f "${todorc}.new" "${todorc}"
     else
         echo "Either \"${1}\" is not writable, or \"${1}/.todo.db\" already exists. Please fix."
         exit 8
     fi
 }
+
+#update todorc file when you already have an existing db
+updateexistingdbpath () {
+    if [ ! -d "${1}" ] || [ ! -f "${1}/.todo.db" ]
+    then
+        echo "Either \"${1}\" is not a directory or \"${1}/.todo.db\" does not exist."
+        exit 5
+    else
+        # we can write, there is a ${1}/.todo.db file, and directory begins with a / (absolute path)
+        if [ -w "${1}" ] && [ -e "${1}/.todo.db" ] && [ "${1:0:1}" == "/" ]
+        then
+            echo "tododb=\"${1}/.todo.db\"" > "${todorc}.new"
+            echo "sqliteopts=\"${sqliteopts}\"" >> "${todorc}.new"
+            mv -f "${todorc}.new" "${todorc}"
+            echo "todo now points to \"${1}/.todo.db\" database instead of \"${tododb}\""
+        else
+            echo "Either \"${1}\" is not writable, or \"${1}/.todo.db\" does not exist. Please fix."
+            exit 8
+        fi
+    fi
+}
+
+#update todorc file when you already have an existing db
+eraseupdateexistingdbpath () {
+    if [ ! -d "${1}" ] || [ ! -f "${1}/.todo.db" ]
+    then
+        echo "Either \"${1}\" is not a directory or \"${1}/.todo.db\" does not exist."
+        exit 5
+    else
+        # we can write, there is a ${1}/.todo.db file, and directory begins with a / (absolute path)
+        if [ -w "${1}" ] && [ -e "${1}/.todo.db" ] && [ "${1:0:1}" == "/" ]
+        then
+            echo "tododb=\"${1}/.todo.db\"" > "${todorc}.new"
+            echo "sqliteopts=\"${sqliteopts}\"" >> "${todorc}.new"
+            mv -f "${todorc}.new" "${todorc}"
+            echo "todo now points to \"${1}/.todo.db\" database instead of \"${tododb}\""
+            if [ -f "${tododb}" ] && [ -w "${tododb}" ]
+            then
+				rm -f "${tododb}"
+				echo "\"${tododb}\" has been deleted."
+			else
+				echo "\"${tododb}\" is either not a file or not writeable. Exiting without deleting it."
+			fi
+        else
+            echo "Either \"${1}\" is not writable, or \"${1}/.todo.db\" does not exist. Please fix."
+            exit 8
+        fi
+    fi
+}
+
 
 main () {
     #satisfy set -u
@@ -410,22 +464,24 @@ main () {
         listentries
         exit
     else
-        if ( ! getopts ab:c:d:him:M:n:p:r:s:S:t:T:u:v OPT )
+        if ( ! getopts ab:c:d:e:E:him:M:n:p:r:s:S:t:T:u:v OPT )
         then
             usage
             exit 1
         fi
     fi
 
-    while getopts ab:c:d:him:M:n:p:r:s:S:t:T:u:v OPT;
+    while getopts ab:c:d:e:E:him:M:n:p:r:s:S:t:T:u:v OPT;
     do
         case $OPT in
             a) listallentries ;;
             b) backup "$OPTARG" ;;
             c) completeentry "$OPTARG" ;;
             d) deleteentry "$OPTARG" ;;
+            e) updateexistingdbpath "$OPTARG" ;;
+            E) eraseupdateexistingdbpath "$OPTARG" ;;
             h) usage ;;
-            i) informations "${TODODB}" ;;
+            i) informations "${tododb}" ;;
             m) movedb "$OPTARG" ;;
             M) mkdirmovedb "$OPTARG" ;;
             n) addentry "$OPTARG" ;;
