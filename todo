@@ -220,6 +220,7 @@ todorc () {
             if [ ! -d "${tododbdir}" ]
             then
                 mkdir -p "${tododbdir}" || { error "todorc function: mkdir -p \"${tododbdir}\"" ; exit 5 ; }
+                tododb="${tododbdir}/.todo.db"
             else
                 #let’s assure we can write into the existing directory
                 if [ ! -w "${tododbdir}" ]
@@ -443,11 +444,11 @@ eraseupdateexistingdbpath () {
             echo "todo now points to \"${1}/.todo.db\" database instead of \"${tododb}\""
             if [ -f "${tododb}" ] && [ -w "${tododb}" ]
             then
-				rm -f "${tododb}"
-				echo "\"${tododb}\" has been deleted."
-			else
-				echo "\"${tododb}\" is either not a file or not writeable. Exiting without deleting it."
-			fi
+                rm -f "${tododb}"
+                echo "\"${tododb}\" has been deleted."
+            else
+                echo "\"${tododb}\" is either not a file or not writeable. Exiting without deleting it."
+            fi
         else
             echo "Either \"${1}\" is not writable, or \"${1}/.todo.db\" does not exist. Please fix."
             exit 8
