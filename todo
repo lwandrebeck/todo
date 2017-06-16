@@ -329,9 +329,8 @@ restore () {
 }
 
 sqlite3checks () {
-    #verify if sqlite3 command is available
-    sqlite3="$(which sqlite3)"
-    which sqlite3 &> /dev/null || unset sqlite3
+    # verify if sqlite3 command is available
+    sqlite3="$(which sqlite3 || true)"
     if [ -z "${sqlite3}" ]
     then
         echo "${0} needs sqlite3 command to run, please install it."
