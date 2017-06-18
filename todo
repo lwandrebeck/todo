@@ -304,7 +304,7 @@ backup () {
         "${sqlite3}" "${tododb}" ".backup '${1}'" || { error "backup function : Error while backup-ing database to \"${1}\". Exiting." ; exit 7 ; }
         echo "\"${tododb}\" was successfully backup-ed to \"${1}\""
     else
-        echo "\"${1}\" is either empty or already existing. Backup aborded."
+        echo "\"${1}\" is either empty or already existing. Backup aborted."
     fi
 }
 
