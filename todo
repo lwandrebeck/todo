@@ -27,7 +27,7 @@ set -e
 set -u
 
 repo="https://github.com/lwandrebeck/todo"
-version="0.9.10"
+version="0.9.11"
 
 version () {
     echo "${version}"
@@ -330,8 +330,7 @@ restore () {
 
 sqlite3checks () {
     #verify if sqlite3 command is available
-    sqlite3="$(which sqlite3)"
-    which sqlite3 &> /dev/null || unset sqlite3
+    sqlite3="$(which sqlite3 2> /dev/null)" || sqlite3=""
     if [ -z "${sqlite3}" ]
     then
         echo "${0} needs sqlite3 command to run, please install it."

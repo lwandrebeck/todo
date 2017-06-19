@@ -1,5 +1,5 @@
 Name:           todo
-Version:        0.9.10
+Version:        0.9.11
 Release:        1%{?dist}
 Summary:        Simple CLI todo list manager written in Bash, using SQLite to store your todo list data.
 
@@ -32,6 +32,9 @@ install -p -m 644  man/todo.1.gz %{buildroot}/%{_mandir}/man1/
 %doc README.md
 
 %changelog
+* Mon Jun 19 2017 Laurent Wandrebeck <l.wandrebeck@quelquesmots.fr> - 0.9.11
+- 0.9.11 release. Several fixes thanks to FlashCode.
+
 * Thu Jun 15 2017 Laurent Wandrebeck <l.wandrebeck@quelquesmots.fr> - 0.9.10
 - 0.9.10 release.
 
